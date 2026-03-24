@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
-import { handleConnection } from './handlers/connection';
+import { handleConnection } from './handlers/connection.js';
+import { logger } from './utils/logger.js';
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
@@ -17,5 +18,5 @@ io.on('connection', (socket) => handleConnection(socket, io));
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-  console.log(`Multiplayer server running on port ${PORT}`);
+  logger.info('Server', `Multiplayer server running on port ${PORT}`, { port: PORT, corsOrigin: process.env.CLIENT_URL || 'http://localhost:5173' });
 });

@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
-import type { Twister, TwisterLength, TwisterTopic } from '../types';
-
-console.log('Check env:', !!process.env.OPENAI_API_KEY);
+import { logger } from '../utils/logger.js';
+import type { Twister, TwisterLength, TwisterTopic } from '../types/index.js';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -27,42 +26,55 @@ export async function generateTwisters(
 ): Promise<Twister[]> {
   const lengthInstruction = getLengthInstruction(length, customLength);
 
+  logger.info('TwisterGenerator', 'Generating twisters', { topic, length, customLength, rounds });
+
   const systemPrompt = `You are a tongue twister generator. Generate ${rounds} unique, fun, and challenging tongue twisters that are difficult to say quickly.
 Each tongue twister should feature words related to the topic: ${topic}.
 ${lengthInstruction}
 Return only the tongue twisters, one per line, with no numbering, no explanations, and no additional text.`;
 
-  const response = await openai.chat.completions.create({
-    model: 'o3-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Generate ${rounds} unique tongue twisters about ${topic}.` },
-    ],
-    reasoning_effort: 'low',
-  });
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'o3-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Generate ${rounds} unique tongue twisters about ${topic}.` },
+      ],
+      reasoning_effort: 'low',
+    });
 
-  const content = response.choices[0]?.message?.content?.trim() ?? '';
+    const content = response.choices[0]?.message?.content?.trim() ?? '';
 
-  const texts = content
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    logger.debug('TwisterGenerator', 'OpenAI response', { content });
 
-  const difficulty = length === 'short' ? 1 : length === 'medium' ? 2 : length === 'long' ? 3 : 2;
-  const usedTexts = new Set<string>();
+    const texts = content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
 
-  return texts
-    .filter((text) => {
-      const normalized = text.toLowerCase();
-      if (usedTexts.has(normalized)) return false;
-      usedTexts.add(normalized);
-      return true;
-    })
-    .map((text, index) => ({
-      id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-      text,
-      difficulty: difficulty as 1 | 2 | 3,
-      topic,
-      length,
-    }));
+    const difficulty = length === 'short' ? 1 : length === 'medium' ? 2 : length === 'long' ? 3 : 2;
+    const usedTexts = new Set<string>();
+
+    const twisters = texts
+      .filter((text) => {
+        const normalized = text.toLowerCase();
+        if (usedTexts.has(normalized)) return false;
+        usedTexts.add(normalized);
+        return true;
+      })
+      .map((text, index) => ({
+        id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+        text,
+        difficulty: difficulty as 1 | 2 | 3,
+        topic,
+        length,
+      }));
+
+    logger.info('TwisterGenerator', 'Twisters generated', { count: twisters.length, texts: twisters.map(t => t.text) });
+
+    return twisters;
+  } catch (error) {
+    logger.error('TwisterGenerator', 'Failed to generate twisters', { error: error instanceof Error ? error.message : String(error) });
+    throw error;
+  }
 }

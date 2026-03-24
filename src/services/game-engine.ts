@@ -1,8 +1,9 @@
 import type { Server } from 'socket.io';
-import type { Room, GameState, Twister, RoundResult, Player } from '../types';
-import { roomManager } from './room-manager';
-import { generateTwisters } from './twister-generator';
-import { scoreTwister } from './scoring';
+import { logger } from '../utils/logger.js';
+import type { Room, GameState, Twister, RoundResult, Player } from '../types/index.js';
+import { roomManager } from './room-manager.js';
+import { generateTwisters } from './twister-generator.js';
+import { scoreTwister } from './scoring.js';
 
 const ROUND_TIME_LIMIT = 30000;
 export const AUTO_ADVANCE_DELAY = 2000;
@@ -12,7 +13,12 @@ class GameEngine {
 
   async startGame(roomCode: string): Promise<boolean> {
     const room = roomManager.getRoom(roomCode);
-    if (!room || room.game.status !== 'lobby') return false;
+    if (!room || room.game.status !== 'lobby') {
+      logger.warn('GameEngine', 'startGame failed - invalid state', { roomCode, status: room?.game.status });
+      return false;
+    }
+
+    logger.info('GameEngine', 'Starting game', { roomCode, topic: room.game.settings.topic, rounds: room.game.settings.rounds });
 
     const twisters = await generateTwisters(
       room.game.settings.topic,
@@ -27,6 +33,8 @@ class GameEngine {
     room.game.startedAt = Date.now();
     room.game.currentTwisterStartTime = Date.now();
 
+    logger.info('GameEngine', 'Game started successfully', { roomCode, twistersGenerated: twisters.length });
+
     return true;
   }
 
@@ -37,16 +45,30 @@ class GameEngine {
     clientTimestamp: number
   ): { similarity: number; isComplete: boolean } | null {
     const room = roomManager.getRoom(roomCode);
-    if (!room || room.game.status !== 'playing') return null;
-    if (room.game.pausedAt !== null) return null;
+    if (!room || room.game.status !== 'playing') {
+      logger.warn('GameEngine', 'submitAnswer failed - game not in playing state', { roomCode, status: room?.game.status });
+      return null;
+    }
+    if (room.game.pausedAt !== null) {
+      logger.warn('GameEngine', 'submitAnswer failed - game paused', { roomCode });
+      return null;
+    }
 
     const currentTwister = room.game.twisters[room.game.currentRound];
-    if (!currentTwister) return null;
+    if (!currentTwister) {
+      logger.warn('GameEngine', 'submitAnswer failed - no current twister', { roomCode, round: room.game.currentRound });
+      return null;
+    }
 
     const roundElapsed = Date.now() - (room.game.currentTwisterStartTime || 0);
-    if (roundElapsed > ROUND_TIME_LIMIT) return null;
+    if (roundElapsed > ROUND_TIME_LIMIT) {
+      logger.warn('GameEngine', 'submitAnswer failed - round time exceeded', { roomCode, roundElapsed, limit: ROUND_TIME_LIMIT });
+      return null;
+    }
 
     const { similarity } = scoreTwister(transcript, currentTwister.text);
+
+    logger.debug('GameEngine', 'Answer scored', { roomCode, playerId, similarity, transcript, target: currentTwister.text });
 
     const result: RoundResult = {
       playerId,
@@ -67,26 +89,35 @@ class GameEngine {
 
     const allPlayersSubmitted = room.game.players.every((p) => submittedPlayerIds.has(p.id));
 
+    logger.info('GameEngine', 'Answer submitted', { roomCode, playerId, playerName: player?.name, similarity, allSubmitted: allPlayersSubmitted });
+
     return { similarity, isComplete: allPlayersSubmitted };
   }
 
   async advanceRound(roomCode: string, io: Server): Promise<boolean> {
     const room = roomManager.getRoom(roomCode);
-    if (!room) return false;
+    if (!room) {
+      logger.warn('GameEngine', 'advanceRound failed - room not found', { roomCode });
+      return false;
+    }
 
     room.game.currentRound++;
 
     if (room.game.currentRound >= room.game.twisters.length) {
+      logger.info('GameEngine', 'Game over - all rounds completed', { roomCode, totalRounds: room.game.twisters.length });
       room.game.status = 'game-over';
       this.clearRoundTimer(roomCode);
       return false;
     }
 
     room.game.currentTwisterStartTime = Date.now();
+    const currentTwister = room.game.twisters[room.game.currentRound];
+
+    logger.info('GameEngine', 'Round advanced', { roomCode, round: room.game.currentRound, twisterId: currentTwister?.id });
 
     io.to(roomCode).emit('round-advanced', {
       currentRound: room.game.currentRound,
-      currentTwister: room.game.twisters[room.game.currentRound],
+      currentTwister,
       roundStartTime: room.game.currentTwisterStartTime,
     });
 
@@ -97,11 +128,19 @@ class GameEngine {
 
   pauseGame(roomCode: string, playerId: string, io: Server): boolean {
     const room = roomManager.getRoom(roomCode);
-    if (!room || room.game.status !== 'playing') return false;
-    if (room.game.pausedAt !== null) return false;
+    if (!room || room.game.status !== 'playing') {
+      logger.warn('GameEngine', 'pauseGame failed - invalid state', { roomCode, status: room?.game.status });
+      return false;
+    }
+    if (room.game.pausedAt !== null) {
+      logger.warn('GameEngine', 'pauseGame failed - already paused', { roomCode });
+      return false;
+    }
 
     room.game.pausedAt = Date.now();
     room.game.status = 'paused';
+
+    logger.info('GameEngine', 'Game paused', { roomCode, playerId, pausedAt: room.game.pausedAt });
 
     io.to(roomCode).emit('game-paused', {
       pausedAt: room.game.pausedAt,
@@ -113,13 +152,21 @@ class GameEngine {
 
   resumeGame(roomCode: string, io: Server): boolean {
     const room = roomManager.getRoom(roomCode);
-    if (!room || room.game.status !== 'paused') return false;
-    if (room.game.pausedAt === null) return false;
+    if (!room || room.game.status !== 'paused') {
+      logger.warn('GameEngine', 'resumeGame failed - invalid state', { roomCode, status: room?.game.status });
+      return false;
+    }
+    if (room.game.pausedAt === null) {
+      logger.warn('GameEngine', 'resumeGame failed - not paused', { roomCode });
+      return false;
+    }
 
     const pauseDuration = Date.now() - room.game.pausedAt;
     room.game.totalPausedTime += pauseDuration;
     room.game.status = 'playing';
     room.game.pausedAt = null;
+
+    logger.info('GameEngine', 'Game resumed', { roomCode, pauseDuration, totalPausedTime: room.game.totalPausedTime });
 
     io.to(roomCode).emit('game-resumed', {
       resumedAt: Date.now(),
@@ -131,12 +178,17 @@ class GameEngine {
 
   endGame(roomCode: string, io: Server): void {
     const room = roomManager.getRoom(roomCode);
-    if (!room) return;
+    if (!room) {
+      logger.warn('GameEngine', 'endGame failed - room not found', { roomCode });
+      return;
+    }
 
     room.game.status = 'game-over';
     this.clearRoundTimer(roomCode);
 
     const leaderboard = this.calculateLeaderboard(room);
+
+    logger.info('GameEngine', 'Game ended', { roomCode, leaderboard: leaderboard.map(e => ({ name: e.player.name, accuracy: e.accuracy })) });
 
     io.to(roomCode).emit('game-ended', { leaderboard });
   }
@@ -161,7 +213,10 @@ class GameEngine {
   private startRoundTimer(roomCode: string, io: Server): void {
     this.clearRoundTimer(roomCode);
 
+    logger.debug('GameEngine', 'Starting round timer', { roomCode, duration: ROUND_TIME_LIMIT });
+
     const timer = setTimeout(async () => {
+      logger.info('GameEngine', 'Round timer expired - auto-advancing', { roomCode });
       await this.advanceRound(roomCode, io);
     }, ROUND_TIME_LIMIT);
 
@@ -173,6 +228,7 @@ class GameEngine {
     if (timer) {
       clearTimeout(timer);
       this.roundTimers.delete(roomCode);
+      logger.debug('GameEngine', 'Round timer cleared', { roomCode });
     }
   }
 }
