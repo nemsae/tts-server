@@ -107,6 +107,7 @@ class GameEngine {
       logger.info('GameEngine', 'Game over - all rounds completed', { roomCode, totalRounds: room.game.twisters.length });
       room.game.status = 'game-over';
       this.clearRoundTimer(roomCode);
+      this.endGame(roomCode, io);
       return false;
     }
 
