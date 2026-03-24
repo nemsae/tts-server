@@ -7,6 +7,7 @@ export interface GameSettings {
   length: TwisterLength;
   customLength?: number;
   rounds: number;
+  roundTimeLimit?: number;
 }
 
 export interface Twister {
@@ -45,6 +46,7 @@ export interface GameState {
   pausedAt: number | null;
   totalPausedTime: number;
   currentTwisterStartTime: number | null;
+  roundTimeLimit: number | null;
 }
 
 export interface Room {
@@ -89,12 +91,14 @@ export interface GameStartedEvent {
   game: GameState;
   currentTwister: Twister;
   roundStartTime: number;
+  roundTimeLimit: number | null;
 }
 
 export interface RoundAdvancedEvent {
   currentRound: number;
   currentTwister: Twister;
   roundStartTime: number;
+  roundTimeLimit: number | null;
 }
 
 export interface PlayerSubmittedEvent {

@@ -88,6 +88,7 @@ export function handleConnection(socket: Socket, io: Server): void {
         game: room.game,
         currentTwister: room.game.twisters[0],
         roundStartTime: room.game.currentTwisterStartTime,
+        roundTimeLimit: room.game.roundTimeLimit,
       });
       callback({ success: true });
     } else {

@@ -5,7 +5,6 @@ import { roomManager } from './room-manager.js';
 import { generateTwisters } from './twister-generator.js';
 import { scoreTwister } from './scoring.js';
 
-const ROUND_TIME_LIMIT = 30000;
 export const AUTO_ADVANCE_DELAY = 2000;
 
 class GameEngine {
@@ -32,6 +31,7 @@ class GameEngine {
     room.game.status = 'playing';
     room.game.startedAt = Date.now();
     room.game.currentTwisterStartTime = Date.now();
+    room.game.roundTimeLimit = room.game.settings.roundTimeLimit ?? null;
 
     logger.info('GameEngine', 'Game started successfully', { roomCode, twistersGenerated: twisters.length });
 
@@ -61,8 +61,8 @@ class GameEngine {
     }
 
     const roundElapsed = Date.now() - (room.game.currentTwisterStartTime || 0);
-    if (roundElapsed > ROUND_TIME_LIMIT) {
-      logger.warn('GameEngine', 'submitAnswer failed - round time exceeded', { roomCode, roundElapsed, limit: ROUND_TIME_LIMIT });
+    if (room.game.roundTimeLimit !== null && roundElapsed > room.game.roundTimeLimit) {
+      logger.warn('GameEngine', 'submitAnswer failed - round time exceeded', { roomCode, roundElapsed, limit: room.game.roundTimeLimit });
       return null;
     }
 
@@ -120,9 +120,12 @@ class GameEngine {
       currentRound: room.game.currentRound,
       currentTwister,
       roundStartTime: room.game.currentTwisterStartTime,
+      roundTimeLimit: room.game.roundTimeLimit,
     });
 
-    this.startRoundTimer(roomCode, io);
+    if (room.game.roundTimeLimit !== null) {
+      this.startRoundTimer(roomCode, io);
+    }
 
     return true;
   }
@@ -214,12 +217,15 @@ class GameEngine {
   private startRoundTimer(roomCode: string, io: Server): void {
     this.clearRoundTimer(roomCode);
 
-    logger.debug('GameEngine', 'Starting round timer', { roomCode, duration: ROUND_TIME_LIMIT });
+    const room = roomManager.getRoom(roomCode);
+    if (!room || room.game.roundTimeLimit === null) return;
+
+    logger.debug('GameEngine', 'Starting round timer', { roomCode, duration: room.game.roundTimeLimit });
 
     const timer = setTimeout(async () => {
       logger.info('GameEngine', 'Round timer expired - auto-advancing', { roomCode });
       await this.advanceRound(roomCode, io);
-    }, ROUND_TIME_LIMIT);
+    }, room.game.roundTimeLimit);
 
     this.roundTimers.set(roomCode, timer);
   }

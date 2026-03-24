@@ -32,6 +32,7 @@ class RoomManager {
       pausedAt: null,
       totalPausedTime: 0,
       currentTwisterStartTime: null,
+      roundTimeLimit: null,
     };
 
     const room: Room = {
