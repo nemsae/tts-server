@@ -1,19 +1,35 @@
 import { generateRoomCode } from '../utils/room-code.js';
 import { logger } from '../utils/logger.js';
+import { validateGameSettings, validatePlayerName } from '../utils/validation.js';
 import type { Room, Player, GameSettings, GameState } from '../types/index.js';
 
 class RoomManager {
   private rooms = new Map<string, Room>();
 
   createRoom(hostName: string, settings: GameSettings): Room {
+    // Validate player name before creating room
+    const nameValidation = validatePlayerName(hostName);
+    if (!nameValidation.isValid) {
+      logger.error('RoomManager', 'Invalid host name provided', { hostName: hostName.substring(0, 20), error: nameValidation.error });
+      throw new Error(`Invalid host name: ${nameValidation.error}`);
+    }
+    const sanitizedHostName = nameValidation.sanitized;
+    
+    // Validate game settings before creating room
+    const validation = validateGameSettings(settings);
+    if (!validation.isValid) {
+      logger.error('RoomManager', 'Invalid game settings provided', { errors: validation.errors, settings });
+      throw new Error(`Invalid game settings: ${validation.errors.join(', ')}`);
+    }
+
     const roomCode = this.generateUniqueCode();
     const hostId = `host-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    logger.debug('RoomManager', 'Creating room', { roomCode, hostName, settings });
+    logger.debug('RoomManager', 'Creating room', { roomCode, hostName: sanitizedHostName, settings });
 
     const host: Player = {
       id: hostId,
-      name: hostName,
+      name: sanitizedHostName,
       isHost: true,
       isReady: true,
       currentScore: 0,
@@ -48,7 +64,15 @@ class RoomManager {
   }
 
   joinRoom(roomCode: string, playerName: string): { room: Room; player: Player } | null {
-    logger.debug('RoomManager', 'Attempting to join room', { roomCode, playerName });
+    // Validate player name before joining room
+    const nameValidation = validatePlayerName(playerName);
+    if (!nameValidation.isValid) {
+      logger.warn('RoomManager', 'Join failed - invalid player name', { playerName: playerName.substring(0, 20), error: nameValidation.error });
+      return null;
+    }
+    const sanitizedPlayerName = nameValidation.sanitized;
+    
+    logger.debug('RoomManager', 'Attempting to join room', { roomCode, playerName: sanitizedPlayerName });
 
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) {
@@ -66,7 +90,7 @@ class RoomManager {
 
     const player: Player = {
       id: `player-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: playerName,
+      name: sanitizedPlayerName,
       isHost: false,
       isReady: false,
       currentScore: 0,

@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
+import { validateTopic, validateRounds, validateCustomLength } from '../utils/validation.js';
 import type { Twister, TwisterLength, TwisterTopic } from '../types/index.js';
 
 const openai = new OpenAI({
@@ -24,12 +25,48 @@ export async function generateTwisters(
   customLength: number | undefined,
   rounds: number
 ): Promise<Twister[]> {
-  const lengthInstruction = getLengthInstruction(length, customLength);
+  // Validate and sanitize inputs before using them in OpenAI prompts
+  const topicValidation = validateTopic(topic);
+  if (!topicValidation.isValid) {
+    logger.error('TwisterGenerator', 'Invalid topic provided', { 
+      original: topic.substring(0, 50), 
+      error: topicValidation.error 
+    });
+    throw new Error(`Invalid topic: ${topicValidation.error}`);
+  }
+  
+  const sanitizedTopic = topicValidation.sanitized;
+  
+  const roundsValidation = validateRounds(rounds);
+  if (!roundsValidation.isValid) {
+    logger.error('TwisterGenerator', 'Invalid rounds provided', { 
+      original: rounds, 
+      error: roundsValidation.error 
+    });
+    throw new Error(`Invalid rounds: ${roundsValidation.error}`);
+  }
+  
+  const validatedRounds = roundsValidation.validated;
+  
+  let validatedCustomLength: number | undefined = undefined;
+  if (length === 'custom' && customLength !== undefined) {
+    const customLengthValidation = validateCustomLength(customLength);
+    if (!customLengthValidation.isValid) {
+      logger.error('TwisterGenerator', 'Invalid custom length provided', { 
+        original: customLength, 
+        error: customLengthValidation.error 
+      });
+      throw new Error(`Invalid custom length: ${customLengthValidation.error}`);
+    }
+    validatedCustomLength = customLengthValidation.validated;
+  }
 
-  logger.info('TwisterGenerator', 'Generating twisters', { topic, length, customLength, rounds });
+  const lengthInstruction = getLengthInstruction(length, validatedCustomLength);
 
-  const systemPrompt = `You are a tongue twister generator. Generate ${rounds} unique, fun, and challenging tongue twisters that are difficult to say quickly.
-Each tongue twister should feature words related to the topic: ${topic}.
+  logger.info('TwisterGenerator', 'Generating twisters', { topic: sanitizedTopic, length, customLength: validatedCustomLength, rounds: validatedRounds });
+
+  const systemPrompt = `You are a tongue twister generator. Generate ${validatedRounds} unique, fun, and challenging tongue twisters that are difficult to say quickly.
+Each tongue twister should feature words related to the topic: ${sanitizedTopic}.
 ${lengthInstruction}
 Return only the tongue twisters, one per line, with no numbering, no explanations, and no additional text.`;
 
@@ -38,7 +75,7 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
       model: 'o3-mini',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Generate ${rounds} unique tongue twisters about ${topic}.` },
+        { role: 'user', content: `Generate ${validatedRounds} unique tongue twisters about ${sanitizedTopic}.` },
       ],
       reasoning_effort: 'low',
     });
@@ -66,7 +103,7 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
         id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
         text,
         difficulty: difficulty as 1 | 2 | 3,
-        topic,
+        topic: sanitizedTopic,
         length,
       }));
 
