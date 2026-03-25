@@ -1,5 +1,6 @@
 import type { Server } from 'socket.io';
 import { logger } from '../utils/logger.js';
+import { validateTranscript } from '../utils/validation.js';
 import type { Room, GameState, Twister, RoundResult, Player } from '../types/index.js';
 import { roomManager } from './room-manager.js';
 import { generateTwisters } from './twister-generator.js';
@@ -44,6 +45,18 @@ class GameEngine {
     transcript: string,
     clientTimestamp: number
   ): { similarity: number; isComplete: boolean } | null {
+    // Validate transcript input
+    const transcriptValidation = validateTranscript(transcript);
+    if (!transcriptValidation.isValid) {
+      logger.warn('GameEngine', 'submitAnswer failed - invalid transcript', { 
+        roomCode, 
+        playerId, 
+        error: transcriptValidation.error 
+      });
+      return null;
+    }
+    const sanitizedTranscript = transcriptValidation.sanitized;
+    
     const room = roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'playing') {
       logger.warn('GameEngine', 'submitAnswer failed - game not in playing state', { roomCode, status: room?.game.status });
@@ -66,9 +79,9 @@ class GameEngine {
       return null;
     }
 
-    const { similarity } = scoreTwister(transcript, currentTwister.text);
+    const { similarity } = scoreTwister(sanitizedTranscript, currentTwister.text);
 
-    logger.debug('GameEngine', 'Answer scored', { roomCode, playerId, similarity, transcript, target: currentTwister.text });
+    logger.debug('GameEngine', 'Answer scored', { roomCode, playerId, similarity, transcript: sanitizedTranscript.substring(0, 50), target: currentTwister.text });
 
     const result: RoundResult = {
       playerId,
