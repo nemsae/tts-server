@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+dist
+*.env
+.DS_Store
+*.md
+*.yaml
+*.yml
+UI_REFACTOR_INSTRUCTIONS.md
+INSTRUCTIONS_FOR_MULTIPLAYER_INTEGRATION.md
