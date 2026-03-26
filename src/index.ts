@@ -6,10 +6,20 @@ import { logger } from './utils/logger.js';
 import { handleApiRequest } from './routes/api.js';
 
 const httpServer = createServer();
+
+const getCorsOrigins = (): string | string[] => {
+  const envOrigins = process.env.CLIENT_URL || '';
+  if (!envOrigins) return 'http://localhost:5173';
+  
+  const origins = envOrigins.split(',').map(o => o.trim()).filter(Boolean);
+  return origins.length > 0 ? origins : ['http://localhost:5173'];
+};
+
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: getCorsOrigins(),
     methods: ['GET', 'POST'],
+    credentials: true,
   },
   pingTimeout: 20000,
   pingInterval: 25000,
