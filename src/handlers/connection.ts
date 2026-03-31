@@ -118,7 +118,7 @@ export function handleConnection(socket: Socket, io: Server): void {
     }
 
     try {
-      const success = await gameEngine.startGame(currentRoomCode);
+      const success = await gameEngine.startGame(currentRoomCode, io);
 
       if (success) {
         logger.info('Socket', 'Game started', { roomCode: currentRoomCode, rounds: room.game.twisters.length });

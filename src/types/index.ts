@@ -114,6 +114,12 @@ export interface GamePausedEvent {
 export interface GameResumedEvent {
   resumedAt: number;
   totalPausedTime: number;
+  roundStartTime: number | null;
+  roundTimeLimit: number | null;
+}
+
+export interface RoundTimeExpiredEvent {
+  round: number;
 }
 
 export interface GameEndedEvent {
