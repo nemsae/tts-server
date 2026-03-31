@@ -130,6 +130,16 @@ class RoomManager {
     return true;
   }
 
+  getActiveLobbyPlayerCount(): number {
+    let count = 0;
+    for (const room of this.rooms.values()) {
+      if (room.game.status === 'lobby') {
+        count += room.game.players.length;
+      }
+    }
+    return count;
+  }
+
   private generateUniqueCode(): string {
     let code: string;
     do {
