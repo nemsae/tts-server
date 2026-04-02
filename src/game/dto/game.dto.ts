@@ -9,4 +9,4 @@ export {
   type JoinRoomDto,
   type SubmitAnswerDto,
   type GenerateTwistersDto,
-} from '../../common/schemas/index.js';
+} from '@nemsae/tts-validation';

@@ -1,7 +1,3 @@
-import { Logger } from '@nestjs/common';
-
-const logger = new Logger('Validation');
-
 const DANGEROUS_PATTERNS = [
   /```/g,
   /<\|/g,
@@ -79,8 +75,8 @@ export function sanitizeInput(input: string): string {
 export function checkTopicForInjection(sanitized: string): string | null {
   for (const pattern of INJECTION_PATTERNS) {
     if (pattern.test(sanitized)) {
-      logger.warn(
-        `Potential prompt injection attempt detected, topic: ${sanitized.substring(0, 50)}, pattern: ${pattern.toString()}`,
+      console.warn(
+        `[Validation] Potential prompt injection attempt detected, topic: ${sanitized.substring(0, 50)}, pattern: ${pattern.toString()}`,
       );
       if (
         pattern.source.includes('ignore|disregard|forget|override') ||

@@ -25,6 +25,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.7.0",
+    "@nemsae/tts-validation": "file:packages/validation",
     "zod": "^4.3.6"
   },
   "devDependencies": {
