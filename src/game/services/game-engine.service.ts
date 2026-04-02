@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
-import { validateTranscript } from '../../common/utils/validation.js';
+import { TranscriptSchema } from '../../common/schemas/index.js';
 import type { Room, RoundResult, Player } from '../../common/types/index.js';
 import { RoomManagerService } from './room-manager.service.js';
 import { TwisterGeneratorService } from './twister-generator.service.js';
@@ -56,12 +56,12 @@ export class GameEngineService {
     transcript: string,
     _clientTimestamp: number,
   ): { similarity: number; isComplete: boolean } | null {
-    const transcriptValidation = validateTranscript(transcript);
-    if (!transcriptValidation.isValid) {
-      this.logger.warn(`submitAnswer failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptValidation.error}`);
+    const transcriptResult = TranscriptSchema.safeParse(transcript);
+    if (!transcriptResult.success) {
+      this.logger.warn(`submitAnswer failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptResult.error.issues.map((e) => e.message).join(', ')}`);
       return null;
     }
-    const sanitizedTranscript = transcriptValidation.sanitized;
+    const sanitizedTranscript = transcriptResult.data;
 
     const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'playing') {

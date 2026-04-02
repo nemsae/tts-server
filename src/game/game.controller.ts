@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, Logger, UsePipes } from '@nestjs/common';
 import { TwisterGeneratorService } from './services/twister-generator.service.js';
 import { RoomManagerService } from './services/room-manager.service.js';
-import { GenerateTwistersDto } from './dto/game.dto.js';
+import { GenerateTwistersSchema, type GenerateTwistersDto } from './dto/game.dto.js';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe.js';
 
 @Controller('api')
 export class GameController {
@@ -20,6 +21,7 @@ export class GameController {
 
   @Post('generate')
   @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(GenerateTwistersSchema))
   async generateTwisters(@Body() dto: GenerateTwistersDto): Promise<{ twisters: unknown[] }> {
     try {
       const twisters = await this.twisterGenerator.generateTwisters(
