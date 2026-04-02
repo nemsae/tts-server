@@ -1,30 +1,33 @@
-import type { Server } from 'socket.io';
-import { logger } from '../utils/logger.js';
-import { validateTranscript } from '../utils/validation.js';
-import type { Room, RoundResult } from '../types/index.js';
-import { roomManager } from './room-manager.js';
-import { generateTwisters } from './twister-generator.js';
-import { scoreTwister } from './scoring.js';
+import { Injectable, Logger } from '@nestjs/common';
+import { Server } from 'socket.io';
+import { validateTranscript } from '../../common/utils/validation.js';
+import type { Room, RoundResult, Player } from '../../common/types/index.js';
+import { RoomManagerService } from './room-manager.service.js';
+import { TwisterGeneratorService } from './twister-generator.service.js';
+import { scoreTwister } from './scoring.service.js';
 
 export const AUTO_ADVANCE_DELAY = 2000;
 
-class GameEngine {
-  private roundTimers = new Map<string, NodeJS.Timeout>();
+@Injectable()
+export class GameEngineService {
+  private readonly logger = new Logger(GameEngineService.name);
+  private roundTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  constructor(
+    private readonly roomManager: RoomManagerService,
+    private readonly twisterGenerator: TwisterGeneratorService,
+  ) {}
 
   async startGame(roomCode: string, io: Server): Promise<boolean> {
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'lobby') {
-      logger.warn('GameEngine', 'startGame failed - invalid state', { roomCode, status: room?.game.status });
+      this.logger.warn(`startGame failed - invalid state, roomCode: ${roomCode}, status: ${room?.game.status}`);
       return false;
     }
 
-    logger.info('GameEngine', 'Starting game', {
-      roomCode,
-      topic: room.game.settings.topic,
-      rounds: room.game.settings.rounds,
-    });
+    this.logger.log(`Starting game, roomCode: ${roomCode}, topic: ${room.game.settings.topic}, rounds: ${room.game.settings.rounds}`);
 
-    const twisters = await generateTwisters(
+    const twisters = await this.twisterGenerator.generateTwisters(
       room.game.settings.topic,
       room.game.settings.length,
       room.game.settings.customLength,
@@ -42,7 +45,7 @@ class GameEngine {
       this.startRoundTimer(roomCode, io);
     }
 
-    logger.info('GameEngine', 'Game started successfully', { roomCode, twistersGenerated: twisters.length });
+    this.logger.log(`Game started successfully, roomCode: ${roomCode}, twistersGenerated: ${twisters.length}`);
 
     return true;
   }
@@ -53,59 +56,38 @@ class GameEngine {
     transcript: string,
     _clientTimestamp: number,
   ): { similarity: number; isComplete: boolean } | null {
-    // Validate transcript input
     const transcriptValidation = validateTranscript(transcript);
     if (!transcriptValidation.isValid) {
-      logger.warn('GameEngine', 'submitAnswer failed - invalid transcript', {
-        roomCode,
-        playerId,
-        error: transcriptValidation.error,
-      });
+      this.logger.warn(`submitAnswer failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptValidation.error}`);
       return null;
     }
     const sanitizedTranscript = transcriptValidation.sanitized;
 
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'playing') {
-      logger.warn('GameEngine', 'submitAnswer failed - game not in playing state', {
-        roomCode,
-        status: room?.game.status,
-      });
+      this.logger.warn(`submitAnswer failed - game not in playing state, roomCode: ${roomCode}, status: ${room?.game.status}`);
       return null;
     }
     if (room.game.pausedAt !== null) {
-      logger.warn('GameEngine', 'submitAnswer failed - game paused', { roomCode });
+      this.logger.warn(`submitAnswer failed - game paused, roomCode: ${roomCode}`);
       return null;
     }
 
     const currentTwister = room.game.twisters[room.game.currentRound];
     if (!currentTwister) {
-      logger.warn('GameEngine', 'submitAnswer failed - no current twister', {
-        roomCode,
-        round: room.game.currentRound,
-      });
+      this.logger.warn(`submitAnswer failed - no current twister, roomCode: ${roomCode}, round: ${room.game.currentRound}`);
       return null;
     }
 
     const roundElapsed = Date.now() - (room.game.currentTwisterStartTime || 0);
     if (room.game.roundTimeLimit !== null && roundElapsed > room.game.roundTimeLimit) {
-      logger.warn('GameEngine', 'submitAnswer failed - round time exceeded', {
-        roomCode,
-        roundElapsed,
-        limit: room.game.roundTimeLimit,
-      });
+      this.logger.warn(`submitAnswer failed - round time exceeded, roomCode: ${roomCode}, roundElapsed: ${roundElapsed}, limit: ${room.game.roundTimeLimit}`);
       return null;
     }
 
     const { similarity } = scoreTwister(sanitizedTranscript, currentTwister.text);
 
-    logger.debug('GameEngine', 'Answer scored', {
-      roomCode,
-      playerId,
-      similarity,
-      transcript: sanitizedTranscript.substring(0, 50),
-      target: currentTwister.text,
-    });
+    this.logger.debug(`Answer scored, roomCode: ${roomCode}, playerId: ${playerId}, similarity: ${similarity}`);
 
     const result: RoundResult = {
       playerId,
@@ -115,42 +97,33 @@ class GameEngine {
     };
     room.game.roundResults.push(result);
 
-    const player = room.game.players.find((p) => p.id === playerId);
+    const player = room.game.players.find((p: Player) => p.id === playerId);
     if (player) {
       player.currentScore = similarity;
     }
 
     const submittedPlayerIds = new Set(
-      room.game.roundResults.filter((r) => r.twisterId === currentTwister.id).map((r) => r.playerId),
+      room.game.roundResults.filter((r: RoundResult) => r.twisterId === currentTwister.id).map((r: RoundResult) => r.playerId),
     );
 
-    const allPlayersSubmitted = room.game.players.every((p) => submittedPlayerIds.has(p.id));
+    const allPlayersSubmitted = room.game.players.every((p: Player) => submittedPlayerIds.has(p.id));
 
-    logger.info('GameEngine', 'Answer submitted', {
-      roomCode,
-      playerId,
-      playerName: player?.name,
-      similarity,
-      allSubmitted: allPlayersSubmitted,
-    });
+    this.logger.log(`Answer submitted, roomCode: ${roomCode}, playerId: ${playerId}, playerName: ${player?.name}, similarity: ${similarity}, allSubmitted: ${allPlayersSubmitted}`);
 
     return { similarity, isComplete: allPlayersSubmitted };
   }
 
   advanceRound(roomCode: string, io: Server): boolean {
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room) {
-      logger.warn('GameEngine', 'advanceRound failed - room not found', { roomCode });
+      this.logger.warn(`advanceRound failed - room not found, roomCode: ${roomCode}`);
       return false;
     }
 
     room.game.currentRound++;
 
     if (room.game.currentRound >= room.game.twisters.length) {
-      logger.info('GameEngine', 'Game over - all rounds completed', {
-        roomCode,
-        totalRounds: room.game.twisters.length,
-      });
+      this.logger.log(`Game over - all rounds completed, roomCode: ${roomCode}, totalRounds: ${room.game.twisters.length}`);
       room.game.status = 'game-over';
       this.clearRoundTimer(roomCode);
       this.endGame(roomCode, io);
@@ -160,11 +133,7 @@ class GameEngine {
     room.game.currentTwisterStartTime = Date.now();
     const currentTwister = room.game.twisters[room.game.currentRound];
 
-    logger.info('GameEngine', 'Round advanced', {
-      roomCode,
-      round: room.game.currentRound,
-      twisterId: currentTwister?.id,
-    });
+    this.logger.log(`Round advanced, roomCode: ${roomCode}, round: ${room.game.currentRound}, twisterId: ${currentTwister?.id}`);
 
     io.to(roomCode).emit('round-advanced', {
       currentRound: room.game.currentRound,
@@ -181,13 +150,13 @@ class GameEngine {
   }
 
   pauseGame(roomCode: string, playerId: string, io: Server): boolean {
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'playing') {
-      logger.warn('GameEngine', 'pauseGame failed - invalid state', { roomCode, status: room?.game.status });
+      this.logger.warn(`pauseGame failed - invalid state, roomCode: ${roomCode}, status: ${room?.game.status}`);
       return false;
     }
     if (room.game.pausedAt !== null) {
-      logger.warn('GameEngine', 'pauseGame failed - already paused', { roomCode });
+      this.logger.warn(`pauseGame failed - already paused, roomCode: ${roomCode}`);
       return false;
     }
 
@@ -196,7 +165,7 @@ class GameEngine {
     room.game.pausedAt = Date.now();
     room.game.status = 'paused';
 
-    logger.info('GameEngine', 'Game paused', { roomCode, playerId, pausedAt: room.game.pausedAt });
+    this.logger.log(`Game paused, roomCode: ${roomCode}, playerId: ${playerId}, pausedAt: ${room.game.pausedAt}`);
 
     io.to(roomCode).emit('game-paused', {
       pausedAt: room.game.pausedAt,
@@ -207,13 +176,13 @@ class GameEngine {
   }
 
   resumeGame(roomCode: string, io: Server): boolean {
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'paused') {
-      logger.warn('GameEngine', 'resumeGame failed - invalid state', { roomCode, status: room?.game.status });
+      this.logger.warn(`resumeGame failed - invalid state, roomCode: ${roomCode}, status: ${room?.game.status}`);
       return false;
     }
     if (room.game.pausedAt === null) {
-      logger.warn('GameEngine', 'resumeGame failed - not paused', { roomCode });
+      this.logger.warn(`resumeGame failed - not paused, roomCode: ${roomCode}`);
       return false;
     }
 
@@ -222,14 +191,11 @@ class GameEngine {
     room.game.status = 'playing';
     room.game.pausedAt = null;
 
-    // Shift the round start time forward by the pause duration so the
-    // remaining round time is preserved for both client countdown display
-    // and server-side submission validation.
     if (room.game.currentTwisterStartTime !== null) {
       room.game.currentTwisterStartTime += pauseDuration;
     }
 
-    logger.info('GameEngine', 'Game resumed', { roomCode, pauseDuration, totalPausedTime: room.game.totalPausedTime });
+    this.logger.log(`Game resumed, roomCode: ${roomCode}, pauseDuration: ${pauseDuration}, totalPausedTime: ${room.game.totalPausedTime}`);
 
     io.to(roomCode).emit('game-resumed', {
       resumedAt: Date.now(),
@@ -238,7 +204,6 @@ class GameEngine {
       roundTimeLimit: room.game.roundTimeLimit,
     });
 
-    // Restart the round timer with the remaining time
     if (room.game.roundTimeLimit !== null) {
       this.startRoundTimer(roomCode, io);
     }
@@ -247,9 +212,9 @@ class GameEngine {
   }
 
   endGame(roomCode: string, io: Server): void {
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room) {
-      logger.warn('GameEngine', 'endGame failed - room not found', { roomCode });
+      this.logger.warn(`endGame failed - room not found, roomCode: ${roomCode}`);
       return;
     }
 
@@ -258,56 +223,46 @@ class GameEngine {
 
     const leaderboard = this.calculateLeaderboard(room);
 
-    logger.info('GameEngine', 'Game ended', {
-      roomCode,
-      leaderboard: leaderboard.map((e) => ({ name: e.player.name, accuracy: e.accuracy })),
-    });
+    this.logger.log(`Game ended, roomCode: ${roomCode}, leaderboard: ${JSON.stringify(leaderboard.map((e: { player: Player; accuracy: number; time: number }) => ({ name: e.player.name, accuracy: e.accuracy })))}`);
 
     io.to(roomCode).emit('game-ended', { leaderboard });
   }
 
   private calculateLeaderboard(room: Room) {
     return room.game.players
-      .map((player) => {
-        const playerResults = room.game.roundResults.filter((r) => r.playerId === player.id);
-        const totalSimilarity = playerResults.reduce((sum, r) => sum + r.similarity, 0);
+      .map((player: Player) => {
+        const playerResults = room.game.roundResults.filter((r: RoundResult) => r.playerId === player.id);
+        const totalSimilarity = playerResults.reduce((sum: number, r: RoundResult) => sum + r.similarity, 0);
         const accuracy = playerResults.length > 0 ? Math.round(totalSimilarity / playerResults.length) : 0;
 
         const totalTime = room.game.startedAt ? Date.now() - room.game.startedAt - room.game.totalPausedTime : 0;
 
         return { player, accuracy, time: totalTime };
       })
-      .sort((a, b) => b.accuracy - a.accuracy || a.time - b.time);
+      .sort((a: { accuracy: number; time: number }, b: { accuracy: number; time: number }) => b.accuracy - a.accuracy || a.time - b.time);
   }
 
   private startRoundTimer(roomCode: string, io: Server): void {
     this.clearRoundTimer(roomCode);
 
-    const room = roomManager.getRoom(roomCode);
+    const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.roundTimeLimit === null) return;
 
-    // Calculate remaining time based on how much of the round has already elapsed
     const elapsed = Date.now() - (room.game.currentTwisterStartTime || Date.now());
     const remaining = Math.max(0, room.game.roundTimeLimit - elapsed);
 
-    logger.debug('GameEngine', 'Starting round timer', {
-      roomCode,
-      remaining,
-      totalDuration: room.game.roundTimeLimit,
-    });
+    this.logger.debug(`Starting round timer, roomCode: ${roomCode}, remaining: ${remaining}, totalDuration: ${room.game.roundTimeLimit}`);
 
     const timer = setTimeout(() => {
-      logger.info('GameEngine', 'Round timer expired', { roomCode });
+      this.logger.log(`Round timer expired, roomCode: ${roomCode}`);
 
-      // Notify clients the round time has expired so they can auto-submit
       io.to(roomCode).emit('round-time-expired', {
         round: room.game.currentRound,
       });
 
-      // Give clients a brief window to submit before advancing
       setTimeout(() => {
-        logger.info('GameEngine', 'Auto-advancing after round time expired', { roomCode });
-        void this.advanceRound(roomCode, io);
+        this.logger.log(`Auto-advancing after round time expired, roomCode: ${roomCode}`);
+        this.advanceRound(roomCode, io);
       }, AUTO_ADVANCE_DELAY);
     }, remaining);
 
@@ -319,9 +274,7 @@ class GameEngine {
     if (timer) {
       clearTimeout(timer);
       this.roundTimers.delete(roomCode);
-      logger.debug('GameEngine', 'Round timer cleared', { roomCode });
+      this.logger.debug(`Round timer cleared, roomCode: ${roomCode}`);
     }
   }
 }
-
-export const gameEngine = new GameEngine();

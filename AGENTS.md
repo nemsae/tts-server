@@ -1,47 +1,41 @@
-# AGENTS.md — TypeScript/Express Standards
+# AGENTS.md — NestJS Standards
 
 ## Project Structure
-
 ```
 src/
-├── api/                  # Feature-based modules (e.g. api/user/)
-│   ├── <feature>Controller.ts  # Request handling, delegates to service
-│   ├── <feature>Service.ts     # Business logic, returns ServiceResponse
-│   ├── <feature>Router.ts      # Route definitions + validation middleware
-│   └── <feature>Model.ts        # Zod schemas + inferred types
+├── main.ts                    # Entry point
+├── app.module.ts              # Root module
 ├── common/
-│   ├── middleware/        # Global middleware (error handler, auth, rate limit)
-│   └── utils/             # Shared helpers (env config, validation, responses)
-├── server.ts             # Express app setup, middleware registration
-└── index.ts              # Entry point — imports app, starts listening
+│   ├── types/index.ts       # Shared types
+│   └── utils/               # Logger, validation, rate-limiter, room-code
+└── game/
+    ├── game.module.ts        # Feature module
+    ├── game.gateway.ts       # WebSocket gateway
+    ├── game.controller.ts    # REST controller
+    ├── dto/                 # DTOs (use class-validator)
+    └── services/            # GameEngine, RoomManager, TwisterGenerator, Scoring
 ```
 
 ## Conventions
-
-- **Modules**: ESM (`"type": "module"` in package.json). Use `import`/`export`, never `require`.
-- **Types**: Strict mode on. No `any` — use `unknown` + narrowing or Zod inference.
-- **Validation**: Validate all incoming requests with Zod schemas via `validateRequest` middleware on routes.
-- **Error handling**: Async route handlers must forward errors with `next(error)`. Use a global 4-arg error middleware as the last registered middleware.
-- **Responses**: Use a standardized `ServiceResponse` class (`{ success, responseObject, message, statusCode }`).
-- **Naming**: PascalCase for classes/types/interfaces. camelCase for functions/variables/files. Files: `userController.ts`, `UserService.ts`.
-
-## Code Style
-
-- Linter: ESLint + Prettier (run `npm run lint` before commits).
-- Imports: Node builtins → external packages → internal aliases (`@/...`) → relative.
-- Check `package.json` before adding new libraries. Prefer existing utilities (Zod, helmet, cors, rate-limit).
-
-## Testing
-
-- Run `npm test` after completing any task. Fix failures before returning control.
-- Unit test services with mocked repositories. Integration test routes with supertest.
+- **ESM**: Use `.js` extensions in all imports
+- **Decorators**: `@WebSocketGateway`, `@SubscribeMessage`, `@MessageBody`, `@Controller`, `@Get`, `@Post`
+- **Validation**: class-validator decorators on DTOs; custom `validateDto()` for WebSocket payloads
+- **DI**: Constructor injection with `@Injectable()` for all services
+- **Naming**: PascalCase (classes), camelCase (variables/functions)
+- **Error handling**: Throw `HttpException`/`BadRequestException` for HTTP errors
 
 ## Commands
+| Action    | Command           |
+|-----------|-------------------|
+| Dev       | `npm run dev`     |
+| Build     | `npm run build`   |
+| Start     | `npm run start`   |
+| Lint      | `npm run lint`    |
 
-| Action          | Command              |
-|-----------------|----------------------|
-| Dev server      | `npm run dev`        |
-| Build           | `npm run build`      |
-| Lint            | `npm run lint`       |
-| Typecheck       | `npm run typecheck`  |
-| Test            | `npm test`           |
+## Environment
+| Variable        | Required | Default     |
+|-----------------|----------|-------------|
+| OPENAI_API_KEY  | Yes      | -           |
+| CLIENT_URL      | Yes      | -           |
+| PORT            | No       | 3001        |
+| LOG_LEVEL       | No       | info        |
