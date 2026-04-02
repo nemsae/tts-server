@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -26,6 +29,15 @@
     "zod": "^4.3.6"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nemsae/tts-server.git",
+    "directory": "packages/validation"
+  },
+  "homepage": "https://github.com/nemsae/tts-server/tree/main/packages/validation",
+  "bugs": {
+    "url": "https://github.com/nemsae/tts-server/issues"
+  },
   "keywords": [
     "tts",
     "validation",
