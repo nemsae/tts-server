@@ -1,7 +1,7 @@
 {
-  "name": "@nemsae/tts-validation",
+  "name": "@jaysonder/tts-validation",
   "version": "0.1.0",
-  "description": "Shared Zod validation schemas for Tone TTS",
+  "description": "Shared Zod validation schemas for TTS",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
