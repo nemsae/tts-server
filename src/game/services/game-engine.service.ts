@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
-import { TranscriptSchema } from '../../common/schemas/index.js';
+import { TranscriptSchema } from 'tts-validation';
 import type { Room, RoundResult, Player } from '../../common/types/index.js';
 import { RoomManagerService } from './room-manager.service.js';
 import { TwisterGeneratorService } from './twister-generator.service.js';

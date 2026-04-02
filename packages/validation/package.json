@@ -1,0 +1,35 @@
+{
+  "name": "tts-validation",
+  "version": "0.1.0",
+  "description": "Shared Zod validation schemas for Tone TTS",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "zod": "^4.3.6"
+  },
+  "license": "MIT",
+  "keywords": [
+    "tts",
+    "validation",
+    "zod",
+    "schemas"
+  ]
+}
