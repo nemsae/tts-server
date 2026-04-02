@@ -12,7 +12,17 @@ router.get('/lobby/active-players', (req, res) => {
 });
 
 router.post('/generate', async (req, res) => {
-  const { topic, length, customLength, rounds: rawRounds } = req.body;
+  const body = req.body as {
+    topic?: unknown;
+    length?: unknown;
+    customLength?: unknown;
+    rounds?: unknown;
+  };
+
+  const topic = body.topic;
+  const length = body.length;
+  const customLength = body.customLength;
+  const rawRounds = body.rounds;
 
   if (!topic || typeof topic !== 'string') {
     res.status(400).json({ error: 'Missing or invalid topic' });
@@ -20,7 +30,7 @@ router.post('/generate', async (req, res) => {
   }
 
   const allowedLengths: TwisterLength[] = ['short', 'medium', 'long', 'custom'];
-  if (!length || !allowedLengths.includes(length)) {
+  if (!length || !allowedLengths.includes(length as TwisterLength)) {
     res.status(400).json({ error: 'Invalid length. Must be one of: short, medium, long, custom' });
     return;
   }
@@ -33,7 +43,12 @@ router.post('/generate', async (req, res) => {
   const rounds = rawRounds && typeof rawRounds === 'number' && rawRounds > 0 ? Math.floor(rawRounds) : 1;
 
   try {
-    const twisters = await generateTwisters(topic, length, customLength, rounds);
+    const twisters = await generateTwisters(
+      topic,
+      length as TwisterLength,
+      typeof customLength === 'number' ? customLength : undefined,
+      rounds,
+    );
     logger.info('API', 'Generated twisters via REST', { topic, length, rounds, count: twisters.length });
     res.json({ twisters });
   } catch (error) {

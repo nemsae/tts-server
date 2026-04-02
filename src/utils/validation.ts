@@ -79,12 +79,6 @@ const DANGEROUS_PATTERNS = [
 ];
 
 /**
- * Allowed characters for topics - whitelist approach for maximum security
- * We allow: letters, numbers, spaces, basic punctuation, and some special chars
- */
-const _ALLOWED_TOPIC_CHARACTERS = /[a-zA-Z0-9\s.,!?'"()-]+/;
-
-/**
  * Sanitize a string by removing potentially dangerous patterns
  * and normalizing whitespace
  */
@@ -305,11 +299,9 @@ export function validateTranscript(transcript: string): { isValid: boolean; sani
   }
 
   // Basic sanitization - remove control characters and excessive whitespace
-  let sanitized = transcript
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim();
+  // eslint-disable-next-line no-control-regex
+  const controlChars = new RegExp('[\\x00-\\x1F\\x7F]', 'g');
+  let sanitized = transcript.replace(controlChars, '').replace(/\s+/g, ' ').trim();
 
   if (sanitized.length === 0) {
     return { isValid: false, sanitized: '', error: 'Transcript cannot be empty' };

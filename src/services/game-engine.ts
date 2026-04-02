@@ -137,7 +137,7 @@ class GameEngine {
     return { similarity, isComplete: allPlayersSubmitted };
   }
 
-  async advanceRound(roomCode: string, io: Server): Promise<boolean> {
+  advanceRound(roomCode: string, io: Server): boolean {
     const room = roomManager.getRoom(roomCode);
     if (!room) {
       logger.warn('GameEngine', 'advanceRound failed - room not found', { roomCode });
