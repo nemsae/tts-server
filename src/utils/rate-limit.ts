@@ -17,7 +17,7 @@ class RateLimiter {
   constructor(windowMs: number = 60000, maxRequests: number = 5) {
     this.windowMs = windowMs;
     this.maxRequests = maxRequests;
-    
+
     // Cleanup expired records every 5 minutes
     setInterval(() => this.cleanup(), 5 * 60 * 1000);
   }
@@ -41,10 +41,10 @@ class RateLimiter {
     }
 
     if (record.count >= this.maxRequests) {
-      logger.warn('RateLimiter', 'Request rate limited', { 
-        key: key.substring(0, 10), 
-        count: record.count, 
-        maxRequests: this.maxRequests 
+      logger.warn('RateLimiter', 'Request rate limited', {
+        key: key.substring(0, 10),
+        count: record.count,
+        maxRequests: this.maxRequests,
       });
       return false;
     }
@@ -82,14 +82,14 @@ class RateLimiter {
   private cleanup(): void {
     const now = Date.now();
     let cleaned = 0;
-    
+
     for (const [key, record] of this.limits.entries()) {
       if (now > record.resetTime) {
         this.limits.delete(key);
         cleaned++;
       }
     }
-    
+
     if (cleaned > 0) {
       logger.debug('RateLimiter', 'Cleaned up expired records', { cleaned });
     }

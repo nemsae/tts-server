@@ -71,8 +71,10 @@ export interface SubmitAnswerPayload {
   timestamp: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface PauseGamePayload {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ResumeGamePayload {}
 
 export interface RoomCreatedEvent {

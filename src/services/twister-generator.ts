@@ -23,38 +23,38 @@ export async function generateTwisters(
   topic: TwisterTopic,
   length: TwisterLength,
   customLength: number | undefined,
-  rounds: number
+  rounds: number,
 ): Promise<Twister[]> {
   // Validate and sanitize inputs before using them in OpenAI prompts
   const topicValidation = validateTopic(topic);
   if (!topicValidation.isValid) {
-    logger.error('TwisterGenerator', 'Invalid topic provided', { 
-      original: topic.substring(0, 50), 
-      error: topicValidation.error 
+    logger.error('TwisterGenerator', 'Invalid topic provided', {
+      original: topic.substring(0, 50),
+      error: topicValidation.error,
     });
     throw new Error(`Invalid topic: ${topicValidation.error}`);
   }
-  
+
   const sanitizedTopic = topicValidation.sanitized;
-  
+
   const roundsValidation = validateRounds(rounds);
   if (!roundsValidation.isValid) {
-    logger.error('TwisterGenerator', 'Invalid rounds provided', { 
-      original: rounds, 
-      error: roundsValidation.error 
+    logger.error('TwisterGenerator', 'Invalid rounds provided', {
+      original: rounds,
+      error: roundsValidation.error,
     });
     throw new Error(`Invalid rounds: ${roundsValidation.error}`);
   }
-  
+
   const validatedRounds = roundsValidation.validated;
-  
+
   let validatedCustomLength: number | undefined = undefined;
   if (length === 'custom' && customLength !== undefined) {
     const customLengthValidation = validateCustomLength(customLength);
     if (!customLengthValidation.isValid) {
-      logger.error('TwisterGenerator', 'Invalid custom length provided', { 
-        original: customLength, 
-        error: customLengthValidation.error 
+      logger.error('TwisterGenerator', 'Invalid custom length provided', {
+        original: customLength,
+        error: customLengthValidation.error,
       });
       throw new Error(`Invalid custom length: ${customLengthValidation.error}`);
     }
@@ -63,7 +63,12 @@ export async function generateTwisters(
 
   const lengthInstruction = getLengthInstruction(length, validatedCustomLength);
 
-  logger.info('TwisterGenerator', 'Generating twisters', { topic: sanitizedTopic, length, customLength: validatedCustomLength, rounds: validatedRounds });
+  logger.info('TwisterGenerator', 'Generating twisters', {
+    topic: sanitizedTopic,
+    length,
+    customLength: validatedCustomLength,
+    rounds: validatedRounds,
+  });
 
   const systemPrompt = `You are a tongue twister generator. Generate ${validatedRounds} unique, fun, and challenging tongue twisters that are difficult to say quickly.
 Each tongue twister should feature words related to the topic: ${sanitizedTopic}.
@@ -102,16 +107,22 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
       .map((text, index) => ({
         id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
         text,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         difficulty: difficulty as 1 | 2 | 3,
         topic: sanitizedTopic,
         length,
       }));
 
-    logger.info('TwisterGenerator', 'Twisters generated', { count: twisters.length, texts: twisters.map(t => t.text) });
+    logger.info('TwisterGenerator', 'Twisters generated', {
+      count: twisters.length,
+      texts: twisters.map((t) => t.text),
+    });
 
     return twisters;
   } catch (error) {
-    logger.error('TwisterGenerator', 'Failed to generate twisters', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('TwisterGenerator', 'Failed to generate twisters', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     throw error;
   }
 }

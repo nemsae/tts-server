@@ -10,11 +10,14 @@ class RoomManager {
     // Validate player name before creating room
     const nameValidation = validatePlayerName(hostName);
     if (!nameValidation.isValid) {
-      logger.error('RoomManager', 'Invalid host name provided', { hostName: hostName.substring(0, 20), error: nameValidation.error });
+      logger.error('RoomManager', 'Invalid host name provided', {
+        hostName: hostName.substring(0, 20),
+        error: nameValidation.error,
+      });
       throw new Error(`Invalid host name: ${nameValidation.error}`);
     }
     const sanitizedHostName = nameValidation.sanitized;
-    
+
     // Validate game settings before creating room
     const validation = validateGameSettings(settings);
     if (!validation.isValid) {
@@ -67,11 +70,14 @@ class RoomManager {
     // Validate player name before joining room
     const nameValidation = validatePlayerName(playerName);
     if (!nameValidation.isValid) {
-      logger.warn('RoomManager', 'Join failed - invalid player name', { playerName: playerName.substring(0, 20), error: nameValidation.error });
+      logger.warn('RoomManager', 'Join failed - invalid player name', {
+        playerName: playerName.substring(0, 20),
+        error: nameValidation.error,
+      });
       return null;
     }
     const sanitizedPlayerName = nameValidation.sanitized;
-    
+
     logger.debug('RoomManager', 'Attempting to join room', { roomCode, playerName: sanitizedPlayerName });
 
     const room = this.rooms.get(roomCode.toUpperCase());
@@ -98,7 +104,12 @@ class RoomManager {
     };
 
     room.game.players.push(player);
-    logger.info('RoomManager', 'Player joined room', { roomCode, playerId: player.id, playerName, totalPlayers: room.game.players.length });
+    logger.info('RoomManager', 'Player joined room', {
+      roomCode,
+      playerId: player.id,
+      playerName,
+      totalPlayers: room.game.players.length,
+    });
     return { room, player };
   }
 
@@ -110,7 +121,7 @@ class RoomManager {
     const room = this.rooms.get(roomCode);
     if (!room) return false;
 
-    const player = room.game.players.find(p => p.id === playerId);
+    const player = room.game.players.find((p) => p.id === playerId);
     logger.debug('RoomManager', 'Removing player', { roomCode, playerId, playerName: player?.name });
 
     room.game.players = room.game.players.filter((p) => p.id !== playerId);
@@ -124,7 +135,11 @@ class RoomManager {
     if (room.hostId === playerId && room.game.players.length > 0) {
       room.game.players[0].isHost = true;
       room.hostId = room.game.players[0].id;
-      logger.info('RoomManager', 'Host reassigned', { roomCode, newHostId: room.hostId, newHostName: room.game.players[0].name });
+      logger.info('RoomManager', 'Host reassigned', {
+        roomCode,
+        newHostId: room.hostId,
+        newHostName: room.game.players[0].name,
+      });
     }
 
     return true;

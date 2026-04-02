@@ -3,11 +3,11 @@ import { roomManager } from '../services/room-manager.js';
 import { gameEngine } from '../services/game-engine.js';
 import { AUTO_ADVANCE_DELAY } from '../services/game-engine.js';
 import { logger } from '../utils/logger.js';
-import { 
-  openaiRateLimiter, 
-  roomCreationRateLimiter, 
-  roomJoinRateLimiter, 
-  answerSubmissionRateLimiter 
+import {
+  openaiRateLimiter,
+  roomCreationRateLimiter,
+  roomJoinRateLimiter,
+  answerSubmissionRateLimiter,
 } from '../utils/rate-limit.js';
 import type { CreateRoomPayload, JoinRoomPayload, SubmitAnswerPayload } from '../types/index.js';
 
@@ -34,7 +34,7 @@ export function handleConnection(socket: Socket, io: Server): void {
       currentRoomCode = room.code;
       currentPlayerId = room.game.players[0].id;
 
-      socket.join(room.code);
+      void socket.join(room.code);
 
       logger.info('Socket', 'Room created', { roomCode: room.code, playerId: currentPlayerId });
 
@@ -72,9 +72,13 @@ export function handleConnection(socket: Socket, io: Server): void {
       currentRoomCode = result.room.code;
       currentPlayerId = result.player.id;
 
-      socket.join(result.room.code);
+      void socket.join(result.room.code);
 
-      logger.info('Socket', 'Player joined room', { roomCode: result.room.code, playerId: currentPlayerId, playerName: payload.playerName });
+      logger.info('Socket', 'Player joined room', {
+        roomCode: result.room.code,
+        playerId: currentPlayerId,
+        playerName: payload.playerName,
+      });
 
       io.to(result.room.code).emit('player-joined', {
         player: result.player,
@@ -112,7 +116,10 @@ export function handleConnection(socket: Socket, io: Server): void {
 
     const room = roomManager.getRoom(currentRoomCode);
     if (!room || room.hostId !== currentPlayerId) {
-      logger.warn('Socket', 'start-game failed - not host or room not found', { roomCode: currentRoomCode, playerId: currentPlayerId });
+      logger.warn('Socket', 'start-game failed - not host or room not found', {
+        roomCode: currentRoomCode,
+        playerId: currentPlayerId,
+      });
       callback({ success: false, error: 'Only host can start game' });
       return;
     }
@@ -147,7 +154,11 @@ export function handleConnection(socket: Socket, io: Server): void {
       return;
     }
 
-    logger.debug('Socket', 'submit-answer event', { roomCode: currentRoomCode, playerId: currentPlayerId, transcript: payload.transcript.substring(0, 50) });
+    logger.debug('Socket', 'submit-answer event', {
+      roomCode: currentRoomCode,
+      playerId: currentPlayerId,
+      transcript: payload.transcript.substring(0, 50),
+    });
 
     if (!currentRoomCode || !currentPlayerId) {
       logger.warn('Socket', 'submit-answer failed - not in room', { playerId: currentPlayerId });
@@ -155,20 +166,23 @@ export function handleConnection(socket: Socket, io: Server): void {
       return;
     }
 
-    const result = gameEngine.submitAnswer(
-      currentRoomCode,
-      currentPlayerId,
-      payload.transcript,
-      payload.timestamp
-    );
+    const result = gameEngine.submitAnswer(currentRoomCode, currentPlayerId, payload.transcript, payload.timestamp);
 
     if (!result) {
-      logger.warn('Socket', 'submit-answer failed - cannot submit', { roomCode: currentRoomCode, playerId: currentPlayerId });
+      logger.warn('Socket', 'submit-answer failed - cannot submit', {
+        roomCode: currentRoomCode,
+        playerId: currentPlayerId,
+      });
       callback?.({ success: false, error: 'Cannot submit answer' });
       return;
     }
 
-    logger.info('Socket', 'Answer submitted', { roomCode: currentRoomCode, playerId: currentPlayerId, similarity: result.similarity, isComplete: result.isComplete });
+    logger.info('Socket', 'Answer submitted', {
+      roomCode: currentRoomCode,
+      playerId: currentPlayerId,
+      similarity: result.similarity,
+      isComplete: result.isComplete,
+    });
 
     io.to(currentRoomCode).emit('player-submitted', {
       playerId: currentPlayerId,
@@ -180,7 +194,7 @@ export function handleConnection(socket: Socket, io: Server): void {
     if (result.isComplete) {
       logger.info('Socket', 'All players submitted, advancing round', { roomCode: currentRoomCode });
       setTimeout(() => {
-        gameEngine.advanceRound(currentRoomCode!, io);
+        void gameEngine.advanceRound(currentRoomCode!, io);
       }, AUTO_ADVANCE_DELAY);
     }
   });
@@ -242,7 +256,11 @@ export function handleConnection(socket: Socket, io: Server): void {
   });
 
   socket.on('disconnect', () => {
-    logger.info('Socket', 'Client disconnected', { socketId: socket.id, roomCode: currentRoomCode, playerId: currentPlayerId });
+    logger.info('Socket', 'Client disconnected', {
+      socketId: socket.id,
+      roomCode: currentRoomCode,
+      playerId: currentPlayerId,
+    });
 
     if (currentRoomCode && currentPlayerId) {
       const roomBefore = roomManager.getRoom(currentRoomCode);
@@ -252,7 +270,11 @@ export function handleConnection(socket: Socket, io: Server): void {
 
       const room = roomManager.getRoom(currentRoomCode);
       if (room) {
-        logger.info('Socket', 'Player removed from room', { roomCode: currentRoomCode, playerId: currentPlayerId, remainingPlayers: room.game.players.length });
+        logger.info('Socket', 'Player removed from room', {
+          roomCode: currentRoomCode,
+          playerId: currentPlayerId,
+          remainingPlayers: room.game.players.length,
+        });
         io.to(currentRoomCode).emit('player-left', {
           playerId: currentPlayerId,
           players: room.game.players,

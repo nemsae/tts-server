@@ -3,9 +3,7 @@ export function levenshteinDistance(source: string, target: string): number {
   if (source.length === 0) return target.length;
   if (target.length === 0) return source.length;
 
-  const matrix = Array.from({ length: source.length + 1 }, () =>
-    new Array<number>(target.length + 1).fill(0)
-  );
+  const matrix = Array.from({ length: source.length + 1 }, () => new Array<number>(target.length + 1).fill(0));
 
   for (let i = 0; i <= source.length; i++) matrix[i][0] = i;
   for (let j = 0; j <= target.length; j++) matrix[0][j] = j;
@@ -13,11 +11,7 @@ export function levenshteinDistance(source: string, target: string): number {
   for (let i = 1; i <= source.length; i++) {
     for (let j = 1; j <= target.length; j++) {
       const cost = source[i - 1] === target[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost
-      );
+      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
     }
   }
 

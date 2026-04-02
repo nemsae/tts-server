@@ -37,7 +37,9 @@ router.post('/generate', async (req, res) => {
     logger.info('API', 'Generated twisters via REST', { topic, length, rounds, count: twisters.length });
     res.json({ twisters });
   } catch (error) {
-    logger.error('API', 'Failed to generate twisters', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('API', 'Failed to generate twisters', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     res.status(500).json({ error: 'Internal server error' });
   }
 });
