@@ -94,8 +94,7 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-    const difficulty = length === 'short' ? 1 : length === 'medium' ? 2 : length === 'long' ? 3 : 2;
-    const usedTexts = new Set<string>();
+  const usedTexts = new Set<string>();
 
     const twisters = texts
       .filter((text) => {
@@ -104,14 +103,17 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
         usedTexts.add(normalized);
         return true;
       })
-      .map((text, index) => ({
-        id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-        text,
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        difficulty: difficulty as 1 | 2 | 3,
-        topic: sanitizedTopic,
-        length,
-      }));
+      .map((text, index) => {
+        const difficulty: 1 | 2 | 3 =
+          length === 'short' ? 1 : length === 'medium' ? 2 : 3;
+        return {
+          id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+          text,
+          difficulty,
+          topic: sanitizedTopic,
+          length,
+        };
+      });
 
     logger.info('TwisterGenerator', 'Twisters generated', {
       count: twisters.length,

@@ -71,11 +71,9 @@ export interface SubmitAnswerPayload {
   timestamp: number;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface PauseGamePayload {}
+export type PauseGamePayload = Record<string, never>;
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface ResumeGamePayload {}
+export type ResumeGamePayload = Record<string, never>;
 
 export interface RoomCreatedEvent {
   roomCode: string;

@@ -9,7 +9,13 @@ import {
   roomJoinRateLimiter,
   answerSubmissionRateLimiter,
 } from '../utils/rate-limit.js';
-import type { CreateRoomPayload, JoinRoomPayload, SubmitAnswerPayload } from '../types/index.js';
+import type { CreateRoomPayload, GameState, JoinRoomPayload, Player, SubmitAnswerPayload } from '../types/index.js';
+
+type CreateRoomResponse = { success: boolean; error?: string; roomCode?: string; player?: Player; game?: GameState };
+type JoinRoomResponse = { success: boolean; error?: string; roomCode?: string; player?: Player; game?: GameState };
+type StartGameResponse = { success: boolean; error?: string };
+type SubmitAnswerResponse = { success: boolean; error?: string; similarity?: number };
+type GenericResponse = { success: boolean; error?: string; game?: GameState; playerId?: string | null };
 
 export function handleConnection(socket: Socket, io: Server): void {
   let currentRoomCode: string | null = null;
@@ -19,8 +25,7 @@ export function handleConnection(socket: Socket, io: Server): void {
 
   logger.info('Socket', 'Client connected', clientInfo);
 
-  socket.on('create-room', async (payload: CreateRoomPayload, callback) => {
-    // Rate limiting check
+  socket.on('create-room', (payload: CreateRoomPayload, callback: (res: CreateRoomResponse) => void) => {
     if (!roomCreationRateLimiter.check(socket.id)) {
       logger.warn('Socket', 'create-room rate limited', { socketId: socket.id });
       callback({ success: false, error: 'Too many room creation attempts. Please try again later.' });
@@ -50,8 +55,7 @@ export function handleConnection(socket: Socket, io: Server): void {
     }
   });
 
-  socket.on('join-room', (payload: JoinRoomPayload, callback) => {
-    // Rate limiting check
+  socket.on('join-room', (payload: JoinRoomPayload, callback: (res: JoinRoomResponse) => void) => {
     if (!roomJoinRateLimiter.check(socket.id)) {
       logger.warn('Socket', 'join-room rate limited', { socketId: socket.id });
       callback({ success: false, error: 'Too many join attempts. Please try again later.' });
@@ -98,8 +102,7 @@ export function handleConnection(socket: Socket, io: Server): void {
     }
   });
 
-  socket.on('start-game', async (_payload, callback) => {
-    // Rate limiting check for expensive OpenAI API calls
+  socket.on('start-game', (_payload, callback?: (res: StartGameResponse) => void) => {
     if (!openaiRateLimiter.check(socket.id)) {
       logger.warn('Socket', 'start-game rate limited', { socketId: socket.id });
       callback?.({ success: false, error: 'Too many game starts. Please wait before trying again.' });
@@ -120,34 +123,36 @@ export function handleConnection(socket: Socket, io: Server): void {
         roomCode: currentRoomCode,
         playerId: currentPlayerId,
       });
-      callback({ success: false, error: 'Only host can start game' });
+      callback?.({ success: false, error: 'Only host can start game' });
       return;
     }
 
-    try {
-      const success = await gameEngine.startGame(currentRoomCode, io);
+    const roomCode = currentRoomCode;
 
-      if (success) {
-        logger.info('Socket', 'Game started', { roomCode: currentRoomCode, rounds: room.game.twisters.length });
-        io.to(currentRoomCode).emit('game-started', {
-          game: room.game,
-          currentTwister: room.game.twisters[0],
-          roundStartTime: room.game.currentTwisterStartTime,
-          roundTimeLimit: room.game.roundTimeLimit,
-        });
-        callback({ success: true });
-      } else {
-        logger.warn('Socket', 'start-game failed', { roomCode: currentRoomCode });
-        callback({ success: false, error: 'Failed to start game' });
-      }
-    } catch (error) {
-      logger.error('Socket', 'start-game error', { error: error instanceof Error ? error.message : String(error) });
-      callback({ success: false, error: error instanceof Error ? error.message : 'Failed to start game' });
-    }
+    gameEngine
+      .startGame(roomCode, io)
+      .then((success) => {
+        if (success) {
+          logger.info('Socket', 'Game started', { roomCode, rounds: room.game.twisters.length });
+          io.to(roomCode).emit('game-started', {
+            game: room.game,
+            currentTwister: room.game.twisters[0],
+            roundStartTime: room.game.currentTwisterStartTime,
+            roundTimeLimit: room.game.roundTimeLimit,
+          });
+          callback?.({ success: true });
+        } else {
+          logger.warn('Socket', 'start-game failed', { roomCode });
+          callback?.({ success: false, error: 'Failed to start game' });
+        }
+      })
+      .catch((error: unknown) => {
+        logger.error('Socket', 'start-game error', { error: error instanceof Error ? error.message : String(error) });
+        callback?.({ success: false, error: error instanceof Error ? error.message : 'Failed to start game' });
+      });
   });
 
-  socket.on('submit-answer', (payload: SubmitAnswerPayload, callback) => {
-    // Rate limiting check
+  socket.on('submit-answer', (payload: SubmitAnswerPayload, callback?: (res: SubmitAnswerResponse) => void) => {
     if (!answerSubmissionRateLimiter.check(socket.id)) {
       logger.warn('Socket', 'submit-answer rate limited', { socketId: socket.id });
       callback?.({ success: false, error: 'Too many submissions. Please slow down.' });
@@ -192,14 +197,15 @@ export function handleConnection(socket: Socket, io: Server): void {
     callback?.({ success: true, similarity: result.similarity });
 
     if (result.isComplete) {
-      logger.info('Socket', 'All players submitted, advancing round', { roomCode: currentRoomCode });
+      const roomCode = currentRoomCode;
+      logger.info('Socket', 'All players submitted, advancing round', { roomCode });
       setTimeout(() => {
-        void gameEngine.advanceRound(currentRoomCode!, io);
+        void gameEngine.advanceRound(roomCode, io);
       }, AUTO_ADVANCE_DELAY);
     }
   });
 
-  socket.on('pause-game', (_payload, callback) => {
+  socket.on('pause-game', (_payload, callback?: (res: GenericResponse) => void) => {
     logger.info('Socket', 'pause-game event', { roomCode: currentRoomCode, playerId: currentPlayerId });
 
     if (!currentRoomCode || !currentPlayerId) {
@@ -218,7 +224,7 @@ export function handleConnection(socket: Socket, io: Server): void {
     }
   });
 
-  socket.on('resume-game', (_payload, callback) => {
+  socket.on('resume-game', (_payload, callback?: (res: GenericResponse) => void) => {
     logger.info('Socket', 'resume-game event', { roomCode: currentRoomCode });
 
     if (!currentRoomCode) {
@@ -237,7 +243,7 @@ export function handleConnection(socket: Socket, io: Server): void {
     }
   });
 
-  socket.on('get-room-state', (_payload, callback) => {
+  socket.on('get-room-state', (_payload, callback?: (res: GenericResponse) => void) => {
     logger.debug('Socket', 'get-room-state event', { roomCode: currentRoomCode });
 
     if (!currentRoomCode) {
