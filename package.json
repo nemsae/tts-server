@@ -4,6 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "nest start --watch",
+    "prebuild": "npm run build:validation",
+    "build:validation": "tsc -p packages/validation/tsconfig.json",
+    "publish:validation": "npm --prefix packages/validation publish",
+    "bump:validation:patch": "npm --prefix packages/validation version patch",
+    "bump:validation:minor": "npm --prefix packages/validation version minor",
+    "bump:validation:major": "npm --prefix packages/validation version major",
     "build": "nest build",
     "start": "node dist/main",
     "lint": "eslint src/",

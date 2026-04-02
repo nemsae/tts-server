@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateRoomCode } from '../../common/utils/room-code.js';
 import { GameSettingsSchema, PlayerNameSchema } from '@nemsae/tts-validation';
+import type { ZodIssue } from 'zod';
 import type { Room, Player, GameSettings, GameState } from '../../common/types/index.js';
 
 @Injectable()
@@ -11,7 +12,7 @@ export class RoomManagerService {
   createRoom(hostName: string, settings: GameSettings): Room {
     const nameResult = PlayerNameSchema.safeParse(hostName);
     if (!nameResult.success) {
-      const error = nameResult.error.issues.map((e) => e.message).join(', ');
+      const error = nameResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
       this.logger.error(`Invalid host name provided, hostName: ${hostName.substring(0, 20)}, error: ${error}`);
       throw new Error(`Invalid host name: ${error}`);
     }
@@ -19,7 +20,7 @@ export class RoomManagerService {
 
     const settingsResult = GameSettingsSchema.safeParse(settings);
     if (!settingsResult.success) {
-      const errors = settingsResult.error.issues.map((e) => e.message).join(', ');
+      const errors = settingsResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
       this.logger.error(`Invalid game settings provided, errors: ${errors}, settings: ${JSON.stringify(settings)}`);
       throw new Error(`Invalid game settings: ${errors}`);
     }
@@ -68,7 +69,7 @@ export class RoomManagerService {
   joinRoom(roomCode: string, playerName: string): { room: Room; player: Player } | null {
     const nameResult = PlayerNameSchema.safeParse(playerName);
     if (!nameResult.success) {
-      this.logger.warn(`Join failed - invalid player name, playerName: ${playerName.substring(0, 20)}, error: ${nameResult.error.issues.map((e) => e.message).join(', ')}`);
+      this.logger.warn(`Join failed - invalid player name, playerName: ${playerName.substring(0, 20)}, error: ${nameResult.error.issues.map((e: ZodIssue) => e.message).join(', ')}`);
       return null;
     }
     const sanitizedPlayerName = nameResult.data;

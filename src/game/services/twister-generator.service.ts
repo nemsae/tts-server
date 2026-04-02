@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import { TopicSchema, RoundsSchema, CustomLengthSchema } from '@nemsae/tts-validation';
+import type { ZodIssue } from 'zod';
 import type { Twister, TwisterLength, TwisterTopic } from '../../common/types/index.js';
 
 function getLengthInstruction(length: TwisterLength, customLength?: number): string {
@@ -34,7 +35,7 @@ export class TwisterGeneratorService {
   ): Promise<Twister[]> {
     const topicResult = TopicSchema.safeParse(topic);
     if (!topicResult.success) {
-      const error = topicResult.error.issues.map((e) => e.message).join(', ');
+      const error = topicResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
       this.logger.error(`Invalid topic provided, original: ${topic.substring(0, 50)}, error: ${error}`);
       throw new Error(`Invalid topic: ${error}`);
     }
@@ -42,7 +43,7 @@ export class TwisterGeneratorService {
 
     const roundsResult = RoundsSchema.safeParse(rounds);
     if (!roundsResult.success) {
-      const error = roundsResult.error.issues.map((e) => e.message).join(', ');
+      const error = roundsResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
       this.logger.error(`Invalid rounds provided, original: ${rounds}, error: ${error}`);
       throw new Error(`Invalid rounds: ${error}`);
     }
@@ -52,7 +53,7 @@ export class TwisterGeneratorService {
     if (length === 'custom' && customLength !== undefined) {
       const customLengthResult = CustomLengthSchema.safeParse(customLength);
       if (!customLengthResult.success) {
-        const error = customLengthResult.error.issues.map((e) => e.message).join(', ');
+        const error = customLengthResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
         this.logger.error(`Invalid custom length provided, original: ${customLength}, error: ${error}`);
         throw new Error(`Invalid custom length: ${error}`);
       }

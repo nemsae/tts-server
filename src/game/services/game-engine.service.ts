@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { TranscriptSchema } from '@nemsae/tts-validation';
+import type { ZodIssue } from 'zod';
 import type { Room, RoundResult, Player } from '../../common/types/index.js';
 import { RoomManagerService } from './room-manager.service.js';
 import { TwisterGeneratorService } from './twister-generator.service.js';
@@ -58,7 +59,7 @@ export class GameEngineService {
   ): { similarity: number; isComplete: boolean } | null {
     const transcriptResult = TranscriptSchema.safeParse(transcript);
     if (!transcriptResult.success) {
-      this.logger.warn(`submitAnswer failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptResult.error.issues.map((e) => e.message).join(', ')}`);
+      this.logger.warn(`submitAnswer failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptResult.error.issues.map((e: ZodIssue) => e.message).join(', ')}`);
       return null;
     }
     const sanitizedTranscript = transcriptResult.data;
