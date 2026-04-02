@@ -80,10 +80,13 @@ export class GameEngineService {
       return null;
     }
 
-    const roundElapsed = Date.now() - (room.game.currentTwisterStartTime || 0);
-    if (room.game.roundTimeLimit !== null && roundElapsed > room.game.roundTimeLimit) {
-      this.logger.warn(`submitAnswer failed - round time exceeded, roomCode: ${roomCode}, roundElapsed: ${roundElapsed}, limit: ${room.game.roundTimeLimit}`);
-      return null;
+    const roundElapsedMs = Date.now() - (room.game.currentTwisterStartTime || 0);
+    if (room.game.roundTimeLimit !== null) {
+      const roundElapsedSeconds = roundElapsedMs / 1000;
+      if (roundElapsedSeconds > room.game.roundTimeLimit) {
+        this.logger.warn(`submitAnswer failed - round time exceeded, roomCode: ${roomCode}, roundElapsedSeconds: ${roundElapsedSeconds}, limitSeconds: ${room.game.roundTimeLimit}`);
+        return null;
+      }
     }
 
     const { similarity } = scoreTwister(sanitizedTranscript, currentTwister.text);
@@ -249,10 +252,11 @@ export class GameEngineService {
     const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.roundTimeLimit === null) return;
 
-    const elapsed = Date.now() - (room.game.currentTwisterStartTime || Date.now());
-    const remaining = Math.max(0, room.game.roundTimeLimit - elapsed);
+    const elapsedMs = Date.now() - (room.game.currentTwisterStartTime || Date.now());
+    const roundTimeLimitMs = room.game.roundTimeLimit * 1000;
+    const remainingMs = Math.max(0, roundTimeLimitMs - elapsedMs);
 
-    this.logger.debug(`Starting round timer, roomCode: ${roomCode}, remaining: ${remaining}, totalDuration: ${room.game.roundTimeLimit}`);
+    this.logger.debug(`Starting round timer, roomCode: ${roomCode}, remainingMs: ${remainingMs}, totalDurationMs: ${roundTimeLimitMs}, limitSeconds: ${room.game.roundTimeLimit}`);
 
     const timer = setTimeout(() => {
       this.logger.log(`Round timer expired, roomCode: ${roomCode}`);
@@ -265,7 +269,7 @@ export class GameEngineService {
         this.logger.log(`Auto-advancing after round time expired, roomCode: ${roomCode}`);
         this.advanceRound(roomCode, io);
       }, AUTO_ADVANCE_DELAY);
-    }, remaining);
+    }, remainingMs);
 
     this.roundTimers.set(roomCode, timer);
   }
