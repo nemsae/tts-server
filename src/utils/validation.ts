@@ -301,10 +301,7 @@ export function validateTranscript(transcript: string): { isValid: boolean; sani
   // Basic sanitization - remove control characters and excessive whitespace
   // eslint-disable-next-line no-control-regex
   const controlChars = new RegExp('[\\x00-\\x1F\\x7F]', 'g');
-  let sanitized = transcript
-    .replace(controlChars, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  let sanitized = transcript.replace(controlChars, '').replace(/\s+/g, ' ').trim();
 
   if (sanitized.length === 0) {
     return { isValid: false, sanitized: '', error: 'Transcript cannot be empty' };

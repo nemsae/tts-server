@@ -94,7 +94,7 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-  const usedTexts = new Set<string>();
+    const usedTexts = new Set<string>();
 
     const twisters = texts
       .filter((text) => {
@@ -104,8 +104,7 @@ Return only the tongue twisters, one per line, with no numbering, no explanation
         return true;
       })
       .map((text, index) => {
-        const difficulty: 1 | 2 | 3 =
-          length === 'short' ? 1 : length === 'medium' ? 2 : 3;
+        const difficulty: 1 | 2 | 3 = length === 'short' ? 1 : length === 'medium' ? 2 : 3;
         return {
           id: `ai-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
           text,

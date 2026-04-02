@@ -43,7 +43,12 @@ router.post('/generate', async (req, res) => {
   const rounds = rawRounds && typeof rawRounds === 'number' && rawRounds > 0 ? Math.floor(rawRounds) : 1;
 
   try {
-    const twisters = await generateTwisters(topic, length as TwisterLength, typeof customLength === 'number' ? customLength : undefined, rounds);
+    const twisters = await generateTwisters(
+      topic,
+      length as TwisterLength,
+      typeof customLength === 'number' ? customLength : undefined,
+      rounds,
+    );
     logger.info('API', 'Generated twisters via REST', { topic, length, rounds, count: twisters.length });
     res.json({ twisters });
   } catch (error) {
