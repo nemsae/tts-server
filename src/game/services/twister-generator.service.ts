@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
-import { TopicSchema, RoundsSchema, CustomLengthSchema } from '@nemsae/tts-validation';
+import { TopicSchema, RoundsSchema, CustomLengthSchema } from '@jaysonder/tts-validation';
 import type { ZodIssue } from 'zod';
 import type { Twister, TwisterLength, TwisterTopic } from '../../common/types/index.js';
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
-import { TranscriptSchema } from '@nemsae/tts-validation';
+import { TranscriptSchema } from '@jaysonder/tts-validation';
 import type { ZodIssue } from 'zod';
 import type { Room, RoundResult, Player } from '../../common/types/index.js';
 import { RoomManagerService } from './room-manager.service.js';

@@ -9,4 +9,4 @@ export {
   type JoinRoomDto,
   type SubmitAnswerDto,
   type GenerateTwistersDto,
-} from '@nemsae/tts-validation';
+} from '@jaysonder/tts-validation';
