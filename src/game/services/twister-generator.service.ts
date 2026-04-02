@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
-import { validateTopic, validateRounds, validateCustomLength } from '../../common/utils/validation.js';
+import { TopicSchema, RoundsSchema, CustomLengthSchema } from '../../common/schemas/index.js';
 import type { Twister, TwisterLength, TwisterTopic } from '../../common/types/index.js';
 
 function getLengthInstruction(length: TwisterLength, customLength?: number): string {
@@ -32,30 +32,31 @@ export class TwisterGeneratorService {
     customLength: number | undefined,
     rounds: number,
   ): Promise<Twister[]> {
-    const topicValidation = validateTopic(topic);
-    if (!topicValidation.isValid) {
-      this.logger.error(`Invalid topic provided, original: ${topic.substring(0, 50)}, error: ${topicValidation.error}`);
-      throw new Error(`Invalid topic: ${topicValidation.error}`);
+    const topicResult = TopicSchema.safeParse(topic);
+    if (!topicResult.success) {
+      const error = topicResult.error.issues.map((e) => e.message).join(', ');
+      this.logger.error(`Invalid topic provided, original: ${topic.substring(0, 50)}, error: ${error}`);
+      throw new Error(`Invalid topic: ${error}`);
     }
+    const sanitizedTopic = topicResult.data;
 
-    const sanitizedTopic = topicValidation.sanitized;
-
-    const roundsValidation = validateRounds(rounds);
-    if (!roundsValidation.isValid) {
-      this.logger.error(`Invalid rounds provided, original: ${rounds}, error: ${roundsValidation.error}`);
-      throw new Error(`Invalid rounds: ${roundsValidation.error}`);
+    const roundsResult = RoundsSchema.safeParse(rounds);
+    if (!roundsResult.success) {
+      const error = roundsResult.error.issues.map((e) => e.message).join(', ');
+      this.logger.error(`Invalid rounds provided, original: ${rounds}, error: ${error}`);
+      throw new Error(`Invalid rounds: ${error}`);
     }
-
-    const validatedRounds = roundsValidation.validated;
+    const validatedRounds = roundsResult.data;
 
     let validatedCustomLength: number | undefined = undefined;
     if (length === 'custom' && customLength !== undefined) {
-      const customLengthValidation = validateCustomLength(customLength);
-      if (!customLengthValidation.isValid) {
-        this.logger.error(`Invalid custom length provided, original: ${customLength}, error: ${customLengthValidation.error}`);
-        throw new Error(`Invalid custom length: ${customLengthValidation.error}`);
+      const customLengthResult = CustomLengthSchema.safeParse(customLength);
+      if (!customLengthResult.success) {
+        const error = customLengthResult.error.issues.map((e) => e.message).join(', ');
+        this.logger.error(`Invalid custom length provided, original: ${customLength}, error: ${error}`);
+        throw new Error(`Invalid custom length: ${error}`);
       }
-      validatedCustomLength = customLengthValidation.validated;
+      validatedCustomLength = customLengthResult.data;
     }
 
     const lengthInstruction = getLengthInstruction(length, validatedCustomLength);

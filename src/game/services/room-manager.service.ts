@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateRoomCode } from '../../common/utils/room-code.js';
-import { validateGameSettings, validatePlayerName } from '../../common/utils/validation.js';
+import { GameSettingsSchema, PlayerNameSchema } from '../../common/schemas/index.js';
 import type { Room, Player, GameSettings, GameState } from '../../common/types/index.js';
 
 @Injectable()
@@ -9,17 +9,19 @@ export class RoomManagerService {
   private rooms = new Map<string, Room>();
 
   createRoom(hostName: string, settings: GameSettings): Room {
-    const nameValidation = validatePlayerName(hostName);
-    if (!nameValidation.isValid) {
-      this.logger.error(`Invalid host name provided, hostName: ${hostName.substring(0, 20)}, error: ${nameValidation.error}`);
-      throw new Error(`Invalid host name: ${nameValidation.error}`);
+    const nameResult = PlayerNameSchema.safeParse(hostName);
+    if (!nameResult.success) {
+      const error = nameResult.error.issues.map((e) => e.message).join(', ');
+      this.logger.error(`Invalid host name provided, hostName: ${hostName.substring(0, 20)}, error: ${error}`);
+      throw new Error(`Invalid host name: ${error}`);
     }
-    const sanitizedHostName = nameValidation.sanitized;
+    const sanitizedHostName = nameResult.data;
 
-    const validation = validateGameSettings(settings);
-    if (!validation.isValid) {
-      this.logger.error(`Invalid game settings provided, errors: ${validation.errors.join(', ')}, settings: ${JSON.stringify(settings)}`);
-      throw new Error(`Invalid game settings: ${validation.errors.join(', ')}`);
+    const settingsResult = GameSettingsSchema.safeParse(settings);
+    if (!settingsResult.success) {
+      const errors = settingsResult.error.issues.map((e) => e.message).join(', ');
+      this.logger.error(`Invalid game settings provided, errors: ${errors}, settings: ${JSON.stringify(settings)}`);
+      throw new Error(`Invalid game settings: ${errors}`);
     }
 
     const roomCode = this.generateUniqueCode();
@@ -64,12 +66,12 @@ export class RoomManagerService {
   }
 
   joinRoom(roomCode: string, playerName: string): { room: Room; player: Player } | null {
-    const nameValidation = validatePlayerName(playerName);
-    if (!nameValidation.isValid) {
-      this.logger.warn(`Join failed - invalid player name, playerName: ${playerName.substring(0, 20)}, error: ${nameValidation.error}`);
+    const nameResult = PlayerNameSchema.safeParse(playerName);
+    if (!nameResult.success) {
+      this.logger.warn(`Join failed - invalid player name, playerName: ${playerName.substring(0, 20)}, error: ${nameResult.error.issues.map((e) => e.message).join(', ')}`);
       return null;
     }
-    const sanitizedPlayerName = nameValidation.sanitized;
+    const sanitizedPlayerName = nameResult.data;
 
     this.logger.debug(`Attempting to join room, roomCode: ${roomCode}, playerName: ${sanitizedPlayerName}`);
 

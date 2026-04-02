@@ -7,25 +7,30 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { UsePipes, ValidationPipe, BadRequestException } from '@nestjs/common';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
+import { BadRequestException } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
+import { ZodSchema } from 'zod';
 import { GameEngineService, AUTO_ADVANCE_DELAY } from './services/game-engine.service.js';
 import { RoomManagerService } from './services/room-manager.service.js';
-import { CreateRoomDto, JoinRoomDto, SubmitAnswerDto } from './dto/game.dto.js';
+import {
+  CreateRoomSchema,
+  JoinRoomSchema,
+  SubmitAnswerSchema,
+  type CreateRoomDto,
+  type JoinRoomDto,
+  type SubmitAnswerDto,
+} from './dto/game.dto.js';
 import { openaiRateLimiter, roomCreationRateLimiter, roomJoinRateLimiter, answerSubmissionRateLimiter } from '../common/utils/rate-limiter.js';
 import type { GameSettings } from '../common/types/index.js';
 
-async function validateDto<T>(dtoClass: new () => T, data: unknown): Promise<T> {
-  const instance = plainToInstance(dtoClass, data);
-  const errors = await validate(instance as object, { whitelist: false, forbidNonWhitelisted: false });
-  if (errors.length > 0) {
-    const messages = errors.flatMap(e => Object.values(e.constraints || {}));
+function parseDto<T>(schema: ZodSchema<T>, data: unknown): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const messages = result.error.issues.map((e) => e.message);
     throw new BadRequestException(messages.join(', '));
   }
-  return instance;
+  return result.data;
 }
 
 @WebSocketGateway({
@@ -37,7 +42,6 @@ async function validateDto<T>(dtoClass: new () => T, data: unknown): Promise<T> 
   pingTimeout: 20000,
   pingInterval: 25000,
 })
-@UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
@@ -85,10 +89,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('create-room')
-  async handleCreateRoom(
+  handleCreateRoom(
     @MessageBody() rawData: unknown,
     @ConnectedSocket() client: Socket,
-  ): Promise<{ success: boolean; error?: string; roomCode?: string; player?: unknown; game?: unknown }> {
+  ): { success: boolean; error?: string; roomCode?: string; player?: unknown; game?: unknown } {
     if (!roomCreationRateLimiter.check(client.id)) {
       this.logger.warn(`create-room rate limited: ${client.id}`);
       return { success: false, error: 'Too many room creation attempts. Please try again later.' };
@@ -96,7 +100,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     let data: CreateRoomDto;
     try {
-      data = await validateDto(CreateRoomDto, rawData);
+      data = parseDto(CreateRoomSchema, rawData);
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Validation failed' };
     }
@@ -131,10 +135,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join-room')
-  async handleJoinRoom(
+  handleJoinRoom(
     @MessageBody() rawData: unknown,
     @ConnectedSocket() client: Socket,
-  ): Promise<{ success: boolean; error?: string; roomCode?: string; player?: unknown; game?: unknown }> {
+  ): { success: boolean; error?: string; roomCode?: string; player?: unknown; game?: unknown } {
     if (!roomJoinRateLimiter.check(client.id)) {
       this.logger.warn(`join-room rate limited: ${client.id}`);
       return { success: false, error: 'Too many join attempts. Please try again later.' };
@@ -142,7 +146,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     let data: JoinRoomDto;
     try {
-      data = await validateDto(JoinRoomDto, rawData);
+      data = parseDto(JoinRoomSchema, rawData);
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Validation failed' };
     }
@@ -232,10 +236,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('submit-answer')
-  async handleSubmitAnswer(
+  handleSubmitAnswer(
     @MessageBody() rawData: unknown,
     @ConnectedSocket() client: Socket,
-  ): Promise<{ success: boolean; error?: string; similarity?: number }> {
+  ): { success: boolean; error?: string; similarity?: number } {
     const socketData = this.socketRoomMap.get(client.id);
 
     if (!answerSubmissionRateLimiter.check(client.id)) {
@@ -245,7 +249,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     let data: SubmitAnswerDto;
     try {
-      data = await validateDto(SubmitAnswerDto, rawData);
+      data = parseDto(SubmitAnswerSchema, rawData);
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Validation failed' };
     }

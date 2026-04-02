@@ -1,14 +1,10 @@
-export type TwisterLength = 'short' | 'medium' | 'long' | 'custom';
+import type { GameSettings as GameSettingsFromSchema, TwisterLength as TwisterLengthFromSchema } from '../schemas/index.js';
+
+export type TwisterLength = TwisterLengthFromSchema;
+export type GameSettings = GameSettingsFromSchema;
+
 export type TwisterTopic = string;
 export type GameScreen = 'lobby' | 'playing' | 'paused' | 'game-over';
-
-export interface GameSettings {
-  topic: string;
-  length: TwisterLength;
-  customLength?: number;
-  rounds: number;
-  roundTimeLimit?: number;
-}
 
 export interface Twister {
   id: string;
