@@ -1,5 +1,5 @@
 {
-  "name": "tts-validation",
+  "name": "@nemsae/tts-validation",
   "version": "0.1.0",
   "description": "Shared Zod validation schemas for Tone TTS",
   "type": "module",

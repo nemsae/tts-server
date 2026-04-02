@@ -45,7 +45,7 @@ Copy `.env.example` to `.env` and set:
 
 ## Publish Validation Package
 
-The shared validation package for the UI is published to npm as `tts-validation`.
+The shared validation package for the UI is published to npm as `@nemsae/tts-validation`.
 
 Before publishing:
 
@@ -57,5 +57,5 @@ Before publishing:
 The `Publish Validation Package` GitHub Actions workflow will publish `packages/validation` to npm using the repo `NPM_TOKEN` secret. After that, other repos can install it with:
 
 ```bash
-npm install tts-validation zod
+npm install @nemsae/tts-validation zod
 ```

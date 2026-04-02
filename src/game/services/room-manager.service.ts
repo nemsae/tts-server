@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateRoomCode } from '../../common/utils/room-code.js';
-import { GameSettingsSchema, PlayerNameSchema } from 'tts-validation';
+import { GameSettingsSchema, PlayerNameSchema } from '@nemsae/tts-validation';
 import type { Room, Player, GameSettings, GameState } from '../../common/types/index.js';
 
 @Injectable()

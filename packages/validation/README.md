@@ -1,17 +1,17 @@
-# tts-validation
+# @nemsae/tts-validation
 
 Shared Zod schemas and inferred types for the Tone TTS server and UI.
 
 ## Install
 
 ```bash
-npm install tts-validation zod
+npm install @nemsae/tts-validation zod
 ```
 
 ## Usage
 
 ```ts
-import { CreateRoomSchema } from 'tts-validation';
+import { CreateRoomSchema } from '@nemsae/tts-validation';
 
 const result = CreateRoomSchema.safeParse(formValues);
 

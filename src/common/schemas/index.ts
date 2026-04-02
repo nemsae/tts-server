@@ -34,4 +34,4 @@ export {
   // Helpers
   sanitizeInput,
   checkTopicForInjection,
-} from 'tts-validation';
+} from '@nemsae/tts-validation';

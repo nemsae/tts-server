@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
-import { TopicSchema, RoundsSchema, CustomLengthSchema } from 'tts-validation';
+import { TopicSchema, RoundsSchema, CustomLengthSchema } from '@nemsae/tts-validation';
 import type { Twister, TwisterLength, TwisterTopic } from '../../common/types/index.js';
 
 function getLengthInstruction(length: TwisterLength, customLength?: number): string {
