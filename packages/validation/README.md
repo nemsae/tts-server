@@ -5,7 +5,7 @@ Shared Zod schemas and inferred types for the Tone TTS server and UI.
 ## Install
 
 ```bash
-npm install @nemsae/tts-validation zod
+npm install @nemsae/tts-validation
 ```
 
 ## Usage

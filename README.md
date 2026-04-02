@@ -57,5 +57,5 @@ Before publishing:
 The `Publish Validation Package` GitHub Actions workflow will publish `packages/validation` to npm using the repo `NPM_TOKEN` secret. After that, other repos can install it with:
 
 ```bash
-npm install @nemsae/tts-validation zod
+npm install @nemsae/tts-validation
 ```
