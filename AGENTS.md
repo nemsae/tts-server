@@ -8,7 +8,7 @@ src/
 │   ├── <feature>Controller.ts  # Request handling, delegates to service
 │   ├── <feature>Service.ts     # Business logic, returns ServiceResponse
 │   ├── <feature>Router.ts      # Route definitions + validation middleware
-│   └── <featureModel.ts        # Zod schemas + inferred types
+│   └── <feature>Model.ts        # Zod schemas + inferred types
 ├── common/
 │   ├── middleware/        # Global middleware (error handler, auth, rate limit)
 │   └── utils/             # Shared helpers (env config, validation, responses)
