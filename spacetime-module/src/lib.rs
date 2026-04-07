@@ -261,6 +261,122 @@ pub fn leave_room(ctx: &ReducerContext) -> Result<(), String> {
     Ok(())
 }
 
+const MAX_SIGNAL_DATA_SIZE: usize = 8192;
+const VALID_SIGNAL_TYPES: &[&str] = &["offer", "answer", "ice-candidate"];
+
+fn validate_signal_type(signal_type: &str) -> Result<String, String> {
+    if VALID_SIGNAL_TYPES.contains(&signal_type) {
+        Ok(signal_type.to_string())
+    } else {
+        Err(format!(
+            "Invalid signal_type. Must be one of: {}",
+            VALID_SIGNAL_TYPES.join(", ")
+        ))
+    }
+}
+
+fn validate_signal_data(data: &str) -> Result<String, String> {
+    if data.is_empty() {
+        return Err("signal_data must not be empty".to_string());
+    }
+    if data.len() > MAX_SIGNAL_DATA_SIZE {
+        return Err(format!(
+            "signal_data exceeds maximum size of {} bytes",
+            MAX_SIGNAL_DATA_SIZE
+        ));
+    }
+    Ok(data.to_string())
+}
+
+#[spacetimedb::reducer]
+pub fn send_signal(
+    ctx: &ReducerContext,
+    to_identity: Identity,
+    signal_type: String,
+    signal_data: String,
+) -> Result<(), String> {
+    let caller = ctx.sender;
+
+    let signal_type = validate_signal_type(&signal_type)?;
+    let signal_data = validate_signal_data(&signal_data)?;
+
+    let caller_player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&caller)
+        .ok_or("Caller not found in any room".to_string())?;
+
+    let target_player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&to_identity)
+        .ok_or("Target player not found".to_string())?;
+
+    if caller_player.room_code != target_player.room_code {
+        return Err("Caller and target must be in the same room".to_string());
+    }
+
+    if !target_player.is_online {
+        return Err("Target is not online".to_string());
+    }
+
+    let signal = PeerSignal {
+        id: 0,
+        from_identity: caller,
+        to_identity,
+        room_code: caller_player.room_code,
+        signal_type,
+        signal_data,
+        created_at: ctx.timestamp,
+    };
+    ctx.db.peer_signal().insert(signal);
+
+    log::info!("Signal sent from {} to {}", caller, to_identity);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn cleanup_signals(ctx: &ReducerContext, room_code: String) -> Result<(), String> {
+    let signals: Vec<PeerSignal> = ctx.db.peer_signal().by_room().filter(&room_code).collect();
+    for signal in signals {
+        ctx.db.peer_signal().id().delete(&signal.id);
+    }
+
+    log::info!("Cleaned up signals for room {}", room_code);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn cleanup_signals_for_peer(
+    ctx: &ReducerContext,
+    peer_identity: Identity,
+) -> Result<(), String> {
+    let from_signals: Vec<PeerSignal> = ctx
+        .db
+        .peer_signal()
+        .by_from()
+        .filter(&peer_identity)
+        .collect();
+    for signal in from_signals {
+        ctx.db.peer_signal().id().delete(&signal.id);
+    }
+
+    let to_signals: Vec<PeerSignal> = ctx
+        .db
+        .peer_signal()
+        .by_to()
+        .filter(&peer_identity)
+        .collect();
+    for signal in to_signals {
+        ctx.db.peer_signal().id().delete(&signal.id);
+    }
+
+    log::info!("Cleaned up signals for peer {}", peer_identity);
+    Ok(())
+}
+
 #[spacetimedb::reducer]
 pub fn update_room_status(
     ctx: &ReducerContext,
