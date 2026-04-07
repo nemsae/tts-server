@@ -112,6 +112,22 @@ The service automatically:
 - Manages connection lifecycle (disconnect on module destroy)
 - Provides typed reducer methods and query methods for room/player data
 
+#### Room Management Migration
+
+As of Ticket 7, room management has been migrated from in-memory to SpacetimeDB:
+
+| Phase | Description                                       |
+| ----- | ------------------------------------------------- |
+| 1     | Write to SpacetimeDB, maintain in-memory fallback |
+| 2     | Switch reads to SpacetimeDB                       |
+| 3     | Remove in-memory RoomManagerService               |
+
+**Key changes:**
+
+- Player identification uses SpacetimeDB identity hex strings instead of `host-${timestamp}-${random}`
+- Socket mappings track `{ roomCode, identity, name }` instead of `{ roomCode, playerId }`
+- All WebSocket events (`player-joined`, `player-left`, etc.) unchanged
+
 ### Connect Client
 
 ```bash
