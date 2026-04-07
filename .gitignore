@@ -8,3 +8,4 @@ node_modules
 
 # SpacetimeDB module
 spacetime-module/target/
+spacetime.local.json
