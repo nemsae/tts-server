@@ -108,7 +108,42 @@ export class SpacetimeDBService implements OnModuleInit, OnModuleDestroy {
     return this.connection;
   }
 
-  async createRoom(playerName: string, settings: STDBGameSettings): Promise<string> {
+  getIdentity(): string | null {
+    if (!this.connection || !this.connection.identity) {
+      return null;
+    }
+    return this.connection.identity.toHexString();
+  }
+
+  async getRoomWithPlayers(roomCode: string): Promise<{ room: STDBRoom; players: STDBPlayer[] } | null> {
+    const room = this.getRoom(roomCode);
+    if (!room) return null;
+
+    const players = this.getPlayersInRoom(roomCode);
+    return { room, players };
+  }
+
+  async getActiveLobbyPlayerCount(): Promise<number> {
+    const conn = this.connection;
+    if (!conn) return 0;
+
+    const lobbyRoomCodes = new Set<string>();
+    for (const room of conn.db.room.iter()) {
+      if (room.status === 'lobby') {
+        lobbyRoomCodes.add(room.roomCode);
+      }
+    }
+
+    let count = 0;
+    for (const player of conn.db.player.iter()) {
+      if (lobbyRoomCodes.has(player.roomCode)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  async createRoom(playerName: string, settings: STDBGameSettings): Promise<{ roomCode: string; identity: string }> {
     const conn = this.getConnection();
     try {
       await conn.reducers.createRoom({
@@ -117,10 +152,26 @@ export class SpacetimeDBService implements OnModuleInit, OnModuleDestroy {
         rounds: settings.rounds,
         roundTimeLimit: settings.roundTimeLimit,
       });
-      return 'room created';
+
+      const identity = conn.identity.toHexString();
+
+      await this.waitForRoomCreated();
+      const room = conn.db.room.iter().find((r) => r.hostIdentity.isEqual(conn.identity));
+      if (!room) {
+        throw new BadRequestException('Room not found after creation');
+      }
+
+      return { roomCode: room.roomCode, identity };
     } catch (error) {
       this.logger.error(`createRoom failed: ${error}`);
       throw new BadRequestException(`Failed to create room: ${error}`);
+    }
+  }
+
+  private async waitForRoomCreated(timeout = 5000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
 

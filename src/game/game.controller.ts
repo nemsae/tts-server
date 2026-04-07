@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, HttpCode, HttpStatus, Logger, UsePipes } from '@nestjs/common';
 import { TwisterGeneratorService } from './services/twister-generator.service.js';
-import { RoomManagerService } from './services/room-manager.service.js';
+import { SpacetimeDBService } from './services/spacetimedb.service.js';
 import { GenerateTwistersSchema, type GenerateTwistersDto } from './dto/game.dto.js';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe.js';
 
@@ -10,12 +10,12 @@ export class GameController {
 
   constructor(
     private readonly twisterGenerator: TwisterGeneratorService,
-    private readonly roomManager: RoomManagerService,
+    private readonly spacetimeDb: SpacetimeDBService,
   ) {}
 
   @Get('lobby/active-players')
-  getActivePlayers(): { count: number } {
-    const count = this.roomManager.getActiveLobbyPlayerCount();
+  async getActivePlayers(): Promise<{ count: number }> {
+    const count = await this.spacetimeDb.getActiveLobbyPlayerCount();
     return { count };
   }
 
@@ -30,7 +30,9 @@ export class GameController {
         dto.customLength,
         dto.rounds ?? 1,
       );
-      this.logger.log(`Generated twisters via REST - topic: ${dto.topic}, length: ${dto.length}, rounds: ${dto.rounds}, count: ${twisters.length}`);
+      this.logger.log(
+        `Generated twisters via REST - topic: ${dto.topic}, length: ${dto.length}, rounds: ${dto.rounds}, count: ${twisters.length}`,
+      );
       return { twisters };
     } catch (error) {
       this.logger.error('Failed to generate twisters', {
