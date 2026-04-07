@@ -91,6 +91,38 @@ pub struct MuteState {
     pub is_muted: bool,
 }
 
+fn find_mute_state(
+    ctx: &ReducerContext,
+    muter_identity: &Identity,
+    muted_identity: &Identity,
+) -> Option<MuteState> {
+    ctx.db
+        .mute_state()
+        .by_muter_muted()
+        .filter(muter_identity)
+        .find(|m| m.muted_identity == *muted_identity)
+}
+
+fn upsert_mute_state(
+    ctx: &ReducerContext,
+    muter_identity: Identity,
+    muted_identity: Identity,
+    is_muted: bool,
+) {
+    if let Some(mut existing) = find_mute_state(ctx, &muter_identity, &muted_identity) {
+        existing.is_muted = is_muted;
+        ctx.db.mute_state().id().update(existing);
+    } else {
+        let mute_state = MuteState {
+            id: 0,
+            muter_identity,
+            muted_identity,
+            is_muted,
+        };
+        ctx.db.mute_state().insert(mute_state);
+    }
+}
+
 #[spacetimedb::reducer(init)]
 pub fn init(_ctx: &ReducerContext) {}
 
@@ -419,5 +451,71 @@ pub fn update_room_status(
     ctx.db.room().room_code().update(room);
 
     log::info!("Room {} status updated to {}", room_code, status);
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn set_mute(
+    ctx: &ReducerContext,
+    muted_identity: Identity,
+    is_muted: bool,
+) -> Result<(), String> {
+    let caller = ctx.sender;
+
+    let caller_player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&caller)
+        .ok_or("Not in a room".to_string())?;
+
+    if caller == muted_identity {
+        return Err("Cannot mute yourself".to_string());
+    }
+
+    let muted_player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&muted_identity)
+        .ok_or("Target player not found".to_string())?;
+
+    if caller_player.room_code != muted_player.room_code {
+        return Err("Target must be in the same room".to_string());
+    }
+
+    upsert_mute_state(ctx, caller, muted_identity, is_muted);
+
+    log::info!(
+        "Mute state updated: {} muted {} = {}",
+        caller,
+        muted_identity,
+        is_muted
+    );
+    Ok(())
+}
+
+#[spacetimedb::reducer]
+pub fn bulk_set_mute(ctx: &ReducerContext, is_muted: bool) -> Result<(), String> {
+    let caller = ctx.sender;
+
+    let caller_player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&caller)
+        .ok_or("Not in a room".to_string())?;
+
+    let room_code = caller_player.room_code.clone();
+
+    let other_players: Vec<Player> = ctx.db.player().by_room().filter(&room_code).collect();
+
+    for player in other_players {
+        if player.identity != caller {
+            upsert_mute_state(ctx, caller, player.identity, is_muted);
+        }
+    }
+
+    log::info!("Bulk mute updated for room {}: {}", room_code, is_muted);
     Ok(())
 }
