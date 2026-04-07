@@ -4,9 +4,9 @@ Multiplayer tongue twister game server. Players create/join rooms, compete to sa
 
 ## Client Connections
 
-| Type | Protocol | Purpose |
-|------|----------|---------|
-| **REST API** | HTTP | Generate tongue twisters, query lobby stats (`/api/*`) |
+| Type          | Protocol  | Purpose                                                                |
+| ------------- | --------- | ---------------------------------------------------------------------- |
+| **REST API**  | HTTP      | Generate tongue twisters, query lobby stats (`/api/*`)                 |
 | **WebSocket** | Socket.IO | Real-time multiplayer — room management, game state, answer submission |
 
 ### Socket.IO Events
@@ -41,6 +41,55 @@ Copy `.env.example` to `.env` and set:
 
 ```bash
 ./deploy-to-gcp.sh
+```
+
+## SpacetimeDB Module
+
+The game state and room management are handled by a SpacetimeDB WASM module in `spacetime-module/`.
+
+### Prerequisites
+
+Install the Spacetime CLI:
+
+```bash
+cargo install spacetimedb
+```
+
+### Build
+
+```bash
+cd spacetime-module
+cargo build --target wasm32-unknown-unknown --release
+```
+
+### Publish
+
+```bash
+# Start SpacetimeDB locally (first time only)
+spacetime start
+
+# Publish to local database
+spacetime publish <database_name>
+```
+
+The database name is configured in `spacetime.local.json`.
+
+### Reducers
+
+| Reducer                                              | Description                               |
+| ---------------------------------------------------- | ----------------------------------------- |
+| `init`                                               | Module initialization (called on publish) |
+| `client_connected`                                   | Marks player online                       |
+| `client_disconnected`                                | Marks player offline                      |
+| `create_room(name, topic, rounds, round_time_limit)` | Creates room + host player                |
+| `join_room(room_code, name)`                         | Joins existing room                       |
+| `leave_room()`                                       | Leaves room, handles host reassignment    |
+| `update_room_status(room_code, status)`              | Updates room status (host only)           |
+
+### Connect Client
+
+```bash
+spacetime connect <database_name>
 ```
 
 ## Publish Validation Package
