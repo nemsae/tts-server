@@ -37,6 +37,12 @@ Copy `.env.example` to `.env` and set:
 - `CLIENT_URL` — Allowed CORS origin (e.g. `http://localhost:5173`)
 - `PORT` — Server port (default `8080`)
 
+### SpacetimeDB Configuration
+
+- `SPACETIMEDB_HOST` — SpacetimeDB server host (default: `localhost:3000`)
+- `SPACETIMEDB_MODULE` — SpacetimeDB module name (default: `tts`)
+- `SPACETIMEDB_TOKEN` — Optional authentication token for SpacetimeDB connection
+
 ## Deploy
 
 ```bash
@@ -85,6 +91,26 @@ The database name is configured in `spacetime.local.json`.
 | `join_room(room_code, name)`                         | Joins existing room                       |
 | `leave_room()`                                       | Leaves room, handles host reassignment    |
 | `update_room_status(room_code, status)`              | Updates room status (host only)           |
+
+### NestJS Integration
+
+The `SpacetimeDBService` in `src/game/services/spacetimedb.service.ts` provides a NestJS-native wrapper around the SpacetimeDB TypeScript SDK:
+
+```typescript
+// Inject the service
+constructor(private readonly stdb: SpacetimeDBService) {}
+
+// Use in your game logic
+const roomCode = await this.stdb.createRoom(playerName, settings);
+const players = this.stdb.getPlayersInRoom(roomCode);
+```
+
+The service automatically:
+
+- Connects to SpacetimeDB on module initialization
+- Handles reconnection with exponential backoff
+- Manages connection lifecycle (disconnect on module destroy)
+- Provides typed reducer methods and query methods for room/player data
 
 ### Connect Client
 
