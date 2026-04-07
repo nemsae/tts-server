@@ -31,127 +31,115 @@ import {
   type RemoteModule as __RemoteModule,
   type SubscriptionEventContextInterface as __SubscriptionEventContextInterface,
   type SubscriptionHandleImpl as __SubscriptionHandleImpl,
-} from "spacetimedb";
+} from 'spacetimedb/dist/sdk';
 
 // Import all reducer arg schemas
-import BulkSetMuteReducer from "./bulk_set_mute_reducer";
-import CleanupSignalsReducer from "./cleanup_signals_reducer";
-import CleanupSignalsForPeerReducer from "./cleanup_signals_for_peer_reducer";
-import CreateRoomReducer from "./create_room_reducer";
-import JoinRoomReducer from "./join_room_reducer";
-import LeaveRoomReducer from "./leave_room_reducer";
-import SendSignalReducer from "./send_signal_reducer";
-import SetMuteReducer from "./set_mute_reducer";
-import UpdateRoomStatusReducer from "./update_room_status_reducer";
+import BulkSetMuteReducer from './bulk_set_mute_reducer';
+import CleanupSignalsReducer from './cleanup_signals_reducer';
+import CleanupSignalsForPeerReducer from './cleanup_signals_for_peer_reducer';
+import CreateRoomReducer from './create_room_reducer';
+import JoinRoomReducer from './join_room_reducer';
+import LeaveRoomReducer from './leave_room_reducer';
+import SendSignalReducer from './send_signal_reducer';
+import SetMuteReducer from './set_mute_reducer';
+import UpdateRoomStatusReducer from './update_room_status_reducer';
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
-import MuteStateRow from "./mute_state_table";
-import PeerSignalRow from "./peer_signal_table";
-import PlayerRow from "./player_table";
-import RoomRow from "./room_table";
+import MuteStateRow from './mute_state_table';
+import PeerSignalRow from './peer_signal_table';
+import PlayerRow from './player_table';
+import RoomRow from './room_table';
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
-  mute_state: __table({
-    name: 'mute_state',
-    indexes: [
-      { accessor: 'id', name: 'mute_state_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-      { accessor: 'by_muter_muted', name: 'mute_state_muter_identity_muted_identity_idx_btree', algorithm: 'btree', columns: [
-        'muterIdentity',
-        'mutedIdentity',
-      ] },
-    ],
-    constraints: [
-      { name: 'mute_state_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, MuteStateRow),
-  peer_signal: __table({
-    name: 'peer_signal',
-    indexes: [
-      { accessor: 'by_from', name: 'peer_signal_from_identity_idx_btree', algorithm: 'btree', columns: [
-        'fromIdentity',
-      ] },
-      { accessor: 'id', name: 'peer_signal_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-      { accessor: 'by_room', name: 'peer_signal_room_code_idx_btree', algorithm: 'btree', columns: [
-        'roomCode',
-      ] },
-      { accessor: 'by_to', name: 'peer_signal_to_identity_idx_btree', algorithm: 'btree', columns: [
-        'toIdentity',
-      ] },
-    ],
-    constraints: [
-      { name: 'peer_signal_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, PeerSignalRow),
-  player: __table({
-    name: 'player',
-    indexes: [
-      { accessor: 'identity', name: 'player_identity_idx_btree', algorithm: 'btree', columns: [
-        'identity',
-      ] },
-      { accessor: 'name', name: 'player_name_idx_btree', algorithm: 'btree', columns: [
-        'name',
-      ] },
-      { accessor: 'by_room', name: 'player_room_code_idx_btree', algorithm: 'btree', columns: [
-        'roomCode',
-      ] },
-    ],
-    constraints: [
-      { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
-      { name: 'player_name_key', constraint: 'unique', columns: ['name'] },
-    ],
-  }, PlayerRow),
-  room: __table({
-    name: 'room',
-    indexes: [
-      { accessor: 'room_code', name: 'room_room_code_idx_btree', algorithm: 'btree', columns: [
-        'roomCode',
-      ] },
-    ],
-    constraints: [
-      { name: 'room_room_code_key', constraint: 'unique', columns: ['roomCode'] },
-    ],
-  }, RoomRow),
+  mute_state: __table(
+    {
+      name: 'mute_state',
+      indexes: [
+        { accessor: 'id', name: 'mute_state_id_idx_btree', algorithm: 'btree', columns: ['id'] },
+        {
+          accessor: 'by_muter_muted',
+          name: 'mute_state_muter_identity_muted_identity_idx_btree',
+          algorithm: 'btree',
+          columns: ['muterIdentity', 'mutedIdentity'],
+        },
+      ],
+      constraints: [{ name: 'mute_state_id_key', constraint: 'unique', columns: ['id'] }],
+    },
+    MuteStateRow,
+  ),
+  peer_signal: __table(
+    {
+      name: 'peer_signal',
+      indexes: [
+        {
+          accessor: 'by_from',
+          name: 'peer_signal_from_identity_idx_btree',
+          algorithm: 'btree',
+          columns: ['fromIdentity'],
+        },
+        { accessor: 'id', name: 'peer_signal_id_idx_btree', algorithm: 'btree', columns: ['id'] },
+        { accessor: 'by_room', name: 'peer_signal_room_code_idx_btree', algorithm: 'btree', columns: ['roomCode'] },
+        { accessor: 'by_to', name: 'peer_signal_to_identity_idx_btree', algorithm: 'btree', columns: ['toIdentity'] },
+      ],
+      constraints: [{ name: 'peer_signal_id_key', constraint: 'unique', columns: ['id'] }],
+    },
+    PeerSignalRow,
+  ),
+  player: __table(
+    {
+      name: 'player',
+      indexes: [
+        { accessor: 'identity', name: 'player_identity_idx_btree', algorithm: 'btree', columns: ['identity'] },
+        { accessor: 'name', name: 'player_name_idx_btree', algorithm: 'btree', columns: ['name'] },
+        { accessor: 'by_room', name: 'player_room_code_idx_btree', algorithm: 'btree', columns: ['roomCode'] },
+      ],
+      constraints: [
+        { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
+        { name: 'player_name_key', constraint: 'unique', columns: ['name'] },
+      ],
+    },
+    PlayerRow,
+  ),
+  room: __table(
+    {
+      name: 'room',
+      indexes: [{ accessor: 'room_code', name: 'room_room_code_idx_btree', algorithm: 'btree', columns: ['roomCode'] }],
+      constraints: [{ name: 'room_room_code_key', constraint: 'unique', columns: ['roomCode'] }],
+    },
+    RoomRow,
+  ),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
-  __reducerSchema("bulk_set_mute", BulkSetMuteReducer),
-  __reducerSchema("cleanup_signals", CleanupSignalsReducer),
-  __reducerSchema("cleanup_signals_for_peer", CleanupSignalsForPeerReducer),
-  __reducerSchema("create_room", CreateRoomReducer),
-  __reducerSchema("join_room", JoinRoomReducer),
-  __reducerSchema("leave_room", LeaveRoomReducer),
-  __reducerSchema("send_signal", SendSignalReducer),
-  __reducerSchema("set_mute", SetMuteReducer),
-  __reducerSchema("update_room_status", UpdateRoomStatusReducer),
+  __reducerSchema('bulk_set_mute', BulkSetMuteReducer),
+  __reducerSchema('cleanup_signals', CleanupSignalsReducer),
+  __reducerSchema('cleanup_signals_for_peer', CleanupSignalsForPeerReducer),
+  __reducerSchema('create_room', CreateRoomReducer),
+  __reducerSchema('join_room', JoinRoomReducer),
+  __reducerSchema('leave_room', LeaveRoomReducer),
+  __reducerSchema('send_signal', SendSignalReducer),
+  __reducerSchema('set_mute', SetMuteReducer),
+  __reducerSchema('update_room_status', UpdateRoomStatusReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
-const proceduresSchema = __procedures(
-);
+const proceduresSchema = __procedures();
 
 /** The remote SpacetimeDB module schema, both runtime and type information. */
 const REMOTE_MODULE = {
   versionInfo: {
-    cliVersion: "2.1.0" as const,
+    cliVersion: '2.1.0' as const,
   },
   tables: tablesSchema.schemaType.tables,
   reducers: reducersSchema.reducersType.reducers,
   ...proceduresSchema,
-} satisfies __RemoteModule<
-  typeof tablesSchema.schemaType,
-  typeof reducersSchema.reducersType,
-  typeof proceduresSchema
->;
+} satisfies __RemoteModule<typeof tablesSchema.schemaType, typeof reducersSchema.reducersType, typeof proceduresSchema>;
 
 /** The tables available in this remote SpacetimeDB module. Each table reference doubles as a query builder. */
 export const tables: __QueryBuilder<typeof tablesSchema.schemaType> = __makeQueryBuilder(tablesSchema.schemaType);
@@ -180,7 +168,10 @@ export class DbConnectionBuilder extends __DbConnectionBuilder<DbConnection> {}
 export class DbConnection extends __DbConnectionImpl<typeof REMOTE_MODULE> {
   /** Creates a new {@link DbConnectionBuilder} to configure and connect to the remote SpacetimeDB instance. */
   static builder = (): DbConnectionBuilder => {
-    return new DbConnectionBuilder(REMOTE_MODULE, (config: __DbConnectionConfig<typeof REMOTE_MODULE>) => new DbConnection(config));
+    return new DbConnectionBuilder(
+      REMOTE_MODULE,
+      (config: __DbConnectionConfig<typeof REMOTE_MODULE>) => new DbConnection(config),
+    );
   };
 
   /** Creates a new {@link SubscriptionBuilder} to configure a subscription to the remote SpacetimeDB instance. */
@@ -188,4 +179,3 @@ export class DbConnection extends __DbConnectionImpl<typeof REMOTE_MODULE> {
     return new SubscriptionBuilder(this);
   };
 }
-
