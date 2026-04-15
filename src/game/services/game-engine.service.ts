@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Server } from 'socket.io';
 import { TranscriptSchema } from '@jaysonder/tts-validation';
 import type { ZodIssue } from 'zod';
-import type { Room, RoundResult, Player } from '../../common/types/index.js';
+import type { Room, RoundResult, Player, PlayerRoundTranscript } from '../../common/types/index.js';
 import { RoomManagerService } from './room-manager.service.js';
 import { TwisterGeneratorService } from './twister-generator.service.js';
 import { scoreTwister } from './scoring.service.js';
@@ -26,7 +26,9 @@ export class GameEngineService {
       return false;
     }
 
-    this.logger.log(`Starting game, roomCode: ${roomCode}, topic: ${room.game.settings.topic}, rounds: ${room.game.settings.rounds}`);
+    this.logger.log(
+      `Starting game, roomCode: ${roomCode}, topic: ${room.game.settings.topic}, rounds: ${room.game.settings.rounds}`,
+    );
 
     const twisters = await this.twisterGenerator.generateTwisters(
       room.game.settings.topic,
@@ -57,16 +59,11 @@ export class GameEngineService {
     transcript: string,
     _clientTimestamp: number,
   ): { similarity: number; isComplete: boolean } | null {
-    const transcriptResult = TranscriptSchema.safeParse(transcript);
-    if (!transcriptResult.success) {
-      this.logger.warn(`submitAnswer failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptResult.error.issues.map((e: ZodIssue) => e.message).join(', ')}`);
-      return null;
-    }
-    const sanitizedTranscript = transcriptResult.data;
-
     const room = this.roomManager.getRoom(roomCode);
     if (!room || room.game.status !== 'playing') {
-      this.logger.warn(`submitAnswer failed - game not in playing state, roomCode: ${roomCode}, status: ${room?.game.status}`);
+      this.logger.warn(
+        `submitAnswer failed - game not in playing state, roomCode: ${roomCode}, status: ${room?.game.status}`,
+      );
       return null;
     }
     if (room.game.pausedAt !== null) {
@@ -76,7 +73,9 @@ export class GameEngineService {
 
     const currentTwister = room.game.twisters[room.game.currentRound];
     if (!currentTwister) {
-      this.logger.warn(`submitAnswer failed - no current twister, roomCode: ${roomCode}, round: ${room.game.currentRound}`);
+      this.logger.warn(
+        `submitAnswer failed - no current twister, roomCode: ${roomCode}, round: ${room.game.currentRound}`,
+      );
       return null;
     }
 
@@ -84,37 +83,113 @@ export class GameEngineService {
     if (room.game.roundTimeLimit !== null) {
       const roundElapsedSeconds = roundElapsedMs / 1000;
       if (roundElapsedSeconds > room.game.roundTimeLimit) {
-        this.logger.warn(`submitAnswer failed - round time exceeded, roomCode: ${roomCode}, roundElapsedSeconds: ${roundElapsedSeconds}, limitSeconds: ${room.game.roundTimeLimit}`);
+        this.logger.warn(
+          `submitAnswer failed - round time exceeded, roomCode: ${roomCode}, roundElapsedSeconds: ${roundElapsedSeconds}, limitSeconds: ${room.game.roundTimeLimit}`,
+        );
         return null;
       }
     }
 
-    const { similarity } = scoreTwister(sanitizedTranscript, currentTwister.text);
+    const updateResult = this.updateTranscript(roomCode, playerId, transcript);
+    if (!updateResult) {
+      return null;
+    }
 
-    this.logger.debug(`Answer scored, roomCode: ${roomCode}, playerId: ${playerId}, similarity: ${similarity}`);
+    const { similarity } = updateResult;
+
+    const savedTranscript = room.game.transcripts.find(
+      (t: PlayerRoundTranscript) => t.playerId === playerId && t.twisterId === currentTwister.id,
+    );
 
     const result: RoundResult = {
       playerId,
       twisterId: currentTwister.id,
+      transcript: savedTranscript?.transcript ?? '',
       similarity,
       completedAt: Date.now(),
     };
     room.game.roundResults.push(result);
 
     const player = room.game.players.find((p: Player) => p.id === playerId);
-    if (player) {
-      player.currentScore = similarity;
-    }
 
     const submittedPlayerIds = new Set(
-      room.game.roundResults.filter((r: RoundResult) => r.twisterId === currentTwister.id).map((r: RoundResult) => r.playerId),
+      room.game.roundResults
+        .filter((r: RoundResult) => r.twisterId === currentTwister.id)
+        .map((r: RoundResult) => r.playerId),
     );
 
     const allPlayersSubmitted = room.game.players.every((p: Player) => submittedPlayerIds.has(p.id));
 
-    this.logger.log(`Answer submitted, roomCode: ${roomCode}, playerId: ${playerId}, playerName: ${player?.name}, similarity: ${similarity}, allSubmitted: ${allPlayersSubmitted}`);
+    this.logger.log(
+      `Answer submitted, roomCode: ${roomCode}, playerId: ${playerId}, playerName: ${player?.name}, similarity: ${similarity}, allSubmitted: ${allPlayersSubmitted}`,
+    );
 
     return { similarity, isComplete: allPlayersSubmitted };
+  }
+
+  updateTranscript(
+    roomCode: string,
+    playerId: string,
+    transcript: string,
+  ): { similarity: number; isComplete: boolean } | null {
+    const transcriptResult = TranscriptSchema.safeParse(transcript);
+    if (!transcriptResult.success) {
+      this.logger.warn(
+        `updateTranscript failed - invalid transcript, roomCode: ${roomCode}, playerId: ${playerId}, error: ${transcriptResult.error.issues.map((e: ZodIssue) => e.message).join(', ')}`,
+      );
+      return null;
+    }
+    const sanitizedTranscript = transcriptResult.data;
+
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room || room.game.status !== 'playing') {
+      this.logger.warn(
+        `updateTranscript failed - game not in playing state, roomCode: ${roomCode}, status: ${room?.game.status}`,
+      );
+      return null;
+    }
+    if (room.game.pausedAt !== null) {
+      this.logger.warn(`updateTranscript failed - game paused, roomCode: ${roomCode}`);
+      return null;
+    }
+
+    const currentTwister = room.game.twisters[room.game.currentRound];
+    if (!currentTwister) {
+      this.logger.warn(
+        `updateTranscript failed - no current twister, roomCode: ${roomCode}, round: ${room.game.currentRound}`,
+      );
+      return null;
+    }
+
+    const { similarity } = scoreTwister(sanitizedTranscript, currentTwister.text);
+
+    this.logger.debug(`Transcript updated, roomCode: ${roomCode}, playerId: ${playerId}, similarity: ${similarity}`);
+
+    const existingIndex = room.game.transcripts.findIndex(
+      (t: PlayerRoundTranscript) => t.playerId === playerId && t.twisterId === currentTwister.id,
+    );
+
+    const now = Date.now();
+    const transcriptEntry: PlayerRoundTranscript = {
+      playerId,
+      twisterId: currentTwister.id,
+      transcript: sanitizedTranscript,
+      similarity,
+      submittedAt: now,
+    };
+
+    if (existingIndex >= 0) {
+      room.game.transcripts[existingIndex] = transcriptEntry;
+    } else {
+      room.game.transcripts.push(transcriptEntry);
+    }
+
+    const player = room.game.players.find((p: Player) => p.id === playerId);
+    if (player) {
+      player.currentScore = similarity;
+    }
+
+    return { similarity, isComplete: false };
   }
 
   advanceRound(roomCode: string, io: Server): boolean {
@@ -125,9 +200,12 @@ export class GameEngineService {
     }
 
     room.game.currentRound++;
+    room.game.transcripts = [];
 
     if (room.game.currentRound >= room.game.twisters.length) {
-      this.logger.log(`Game over - all rounds completed, roomCode: ${roomCode}, totalRounds: ${room.game.twisters.length}`);
+      this.logger.log(
+        `Game over - all rounds completed, roomCode: ${roomCode}, totalRounds: ${room.game.twisters.length}`,
+      );
       room.game.status = 'game-over';
       this.clearRoundTimer(roomCode);
       this.endGame(roomCode, io);
@@ -137,7 +215,9 @@ export class GameEngineService {
     room.game.currentTwisterStartTime = Date.now();
     const currentTwister = room.game.twisters[room.game.currentRound];
 
-    this.logger.log(`Round advanced, roomCode: ${roomCode}, round: ${room.game.currentRound}, twisterId: ${currentTwister?.id}`);
+    this.logger.log(
+      `Round advanced, roomCode: ${roomCode}, round: ${room.game.currentRound}, twisterId: ${currentTwister?.id}`,
+    );
 
     io.to(roomCode).emit('round-advanced', {
       currentRound: room.game.currentRound,
@@ -199,7 +279,9 @@ export class GameEngineService {
       room.game.currentTwisterStartTime += pauseDuration;
     }
 
-    this.logger.log(`Game resumed, roomCode: ${roomCode}, pauseDuration: ${pauseDuration}, totalPausedTime: ${room.game.totalPausedTime}`);
+    this.logger.log(
+      `Game resumed, roomCode: ${roomCode}, pauseDuration: ${pauseDuration}, totalPausedTime: ${room.game.totalPausedTime}`,
+    );
 
     io.to(roomCode).emit('game-resumed', {
       resumedAt: Date.now(),
@@ -227,7 +309,9 @@ export class GameEngineService {
 
     const leaderboard = this.calculateLeaderboard(room);
 
-    this.logger.log(`Game ended, roomCode: ${roomCode}, leaderboard: ${JSON.stringify(leaderboard.map((e: { player: Player; accuracy: number; time: number }) => ({ name: e.player.name, accuracy: e.accuracy })))}`);
+    this.logger.log(
+      `Game ended, roomCode: ${roomCode}, leaderboard: ${JSON.stringify(leaderboard.map((e: { player: Player; accuracy: number; time: number }) => ({ name: e.player.name, accuracy: e.accuracy })))}`,
+    );
 
     io.to(roomCode).emit('game-ended', { leaderboard });
   }
@@ -243,7 +327,10 @@ export class GameEngineService {
 
         return { player, accuracy, time: totalTime };
       })
-      .sort((a: { accuracy: number; time: number }, b: { accuracy: number; time: number }) => b.accuracy - a.accuracy || a.time - b.time);
+      .sort(
+        (a: { accuracy: number; time: number }, b: { accuracy: number; time: number }) =>
+          b.accuracy - a.accuracy || a.time - b.time,
+      );
   }
 
   private startRoundTimer(roomCode: string, io: Server): void {
@@ -256,7 +343,9 @@ export class GameEngineService {
     const roundTimeLimitMs = room.game.roundTimeLimit * 1000;
     const remainingMs = Math.max(0, roundTimeLimitMs - elapsedMs);
 
-    this.logger.debug(`Starting round timer, roomCode: ${roomCode}, remainingMs: ${remainingMs}, totalDurationMs: ${roundTimeLimitMs}, limitSeconds: ${room.game.roundTimeLimit}`);
+    this.logger.debug(
+      `Starting round timer, roomCode: ${roomCode}, remainingMs: ${remainingMs}, totalDurationMs: ${roundTimeLimitMs}, limitSeconds: ${room.game.roundTimeLimit}`,
+    );
 
     const timer = setTimeout(() => {
       this.logger.log(`Round timer expired, roomCode: ${roomCode}`);

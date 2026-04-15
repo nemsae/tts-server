@@ -32,7 +32,9 @@ export class RateLimiter {
     }
 
     if (record.count >= this.maxRequests) {
-      logger.warn(`Request rate limited, key: ${key.substring(0, 10)}, count: ${record.count}, maxRequests: ${this.maxRequests}`);
+      logger.warn(
+        `Request rate limited, key: ${key.substring(0, 10)}, count: ${record.count}, maxRequests: ${this.maxRequests}`,
+      );
       return false;
     }
 
@@ -85,3 +87,4 @@ export const openaiRateLimiter = new RateLimiter(60000, 5);
 export const roomCreationRateLimiter = new RateLimiter(60000, 10);
 export const roomJoinRateLimiter = new RateLimiter(60000, 20);
 export const answerSubmissionRateLimiter = new RateLimiter(60000, 60);
+export const transcriptSubmissionRateLimiter = new RateLimiter(1000, 2);

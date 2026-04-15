@@ -28,7 +28,9 @@ export class RoomManagerService {
     const roomCode = this.generateUniqueCode();
     const hostId = `host-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    this.logger.debug(`Creating room, roomCode: ${roomCode}, hostName: ${sanitizedHostName}, settings: ${JSON.stringify(settings)}`);
+    this.logger.debug(
+      `Creating room, roomCode: ${roomCode}, hostName: ${sanitizedHostName}, settings: ${JSON.stringify(settings)}`,
+    );
 
     const host: Player = {
       id: hostId,
@@ -46,6 +48,7 @@ export class RoomManagerService {
       twisters: [],
       currentRound: -1,
       roundResults: [],
+      transcripts: [],
       status: 'lobby',
       startedAt: null,
       pausedAt: null,
@@ -69,7 +72,9 @@ export class RoomManagerService {
   joinRoom(roomCode: string, playerName: string): { room: Room; player: Player } | null {
     const nameResult = PlayerNameSchema.safeParse(playerName);
     if (!nameResult.success) {
-      this.logger.warn(`Join failed - invalid player name, playerName: ${playerName.substring(0, 20)}, error: ${nameResult.error.issues.map((e: ZodIssue) => e.message).join(', ')}`);
+      this.logger.warn(
+        `Join failed - invalid player name, playerName: ${playerName.substring(0, 20)}, error: ${nameResult.error.issues.map((e: ZodIssue) => e.message).join(', ')}`,
+      );
       return null;
     }
     const sanitizedPlayerName = nameResult.data;
@@ -100,7 +105,9 @@ export class RoomManagerService {
     };
 
     room.game.players.push(player);
-    this.logger.log(`Player joined room, roomCode: ${roomCode}, playerId: ${player.id}, playerName: ${playerName}, totalPlayers: ${room.game.players.length}`);
+    this.logger.log(
+      `Player joined room, roomCode: ${roomCode}, playerId: ${player.id}, playerName: ${playerName}, totalPlayers: ${room.game.players.length}`,
+    );
     return { room, player };
   }
 
@@ -126,7 +133,9 @@ export class RoomManagerService {
     if (room.hostId === playerId && room.game.players.length > 0) {
       room.game.players[0].isHost = true;
       room.hostId = room.game.players[0].id;
-      this.logger.log(`Host reassigned, roomCode: ${roomCode}, newHostId: ${room.hostId}, newHostName: ${room.game.players[0].name}`);
+      this.logger.log(
+        `Host reassigned, roomCode: ${roomCode}, newHostId: ${room.hostId}, newHostName: ${room.game.players[0].name}`,
+      );
     }
 
     return true;

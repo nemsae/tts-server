@@ -21,7 +21,13 @@ import {
   type JoinRoomDto,
   type SubmitAnswerDto,
 } from './dto/game.dto.js';
-import { openaiRateLimiter, roomCreationRateLimiter, roomJoinRateLimiter, answerSubmissionRateLimiter } from '../common/utils/rate-limiter.js';
+import {
+  openaiRateLimiter,
+  roomCreationRateLimiter,
+  roomJoinRateLimiter,
+  answerSubmissionRateLimiter,
+  transcriptSubmissionRateLimiter,
+} from '../common/utils/rate-limiter.js';
 import type { GameSettings } from '../common/types/index.js';
 
 function parseDto<T>(schema: ZodSchema<T>, data: unknown): T {
@@ -343,7 +349,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('get-room-state')
-  handleGetRoomState(@ConnectedSocket() client: Socket): { success: boolean; error?: string; game?: unknown; playerId?: string | null } {
+  handleGetRoomState(@ConnectedSocket() client: Socket): {
+    success: boolean;
+    error?: string;
+    game?: unknown;
+    playerId?: string | null;
+  } {
     const socketData = this.socketRoomMap.get(client.id);
 
     this.logger.debug(`get-room-state event`, { roomCode: socketData?.roomCode });
@@ -359,5 +370,79 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return { success: true, game: room.game, playerId: socketData.playerId };
+  }
+
+  @SubscribeMessage('submit-transcript')
+  handleSubmitTranscript(
+    @MessageBody() rawData: unknown,
+    @ConnectedSocket() client: Socket,
+  ): { success: boolean; error?: string; similarity?: number } {
+    const socketData = this.socketRoomMap.get(client.id);
+
+    if (!transcriptSubmissionRateLimiter.check(client.id)) {
+      this.logger.warn(`submit-transcript rate limited: ${client.id}`);
+      return { success: false, error: 'Too many transcript submissions. Please slow down.', similarity: 0 };
+    }
+
+    let data: SubmitAnswerDto;
+    try {
+      data = parseDto(SubmitAnswerSchema, rawData);
+    } catch {
+      return { success: false, error: 'Validation failed', similarity: 0 };
+    }
+
+    this.logger.debug(`submit-transcript event`, {
+      roomCode: socketData?.roomCode,
+      playerId: socketData?.playerId,
+      transcript: data.transcript.substring(0, 50),
+    });
+
+    if (!socketData?.roomCode || !socketData?.playerId) {
+      return { success: false, error: 'Not in a room', similarity: 0 };
+    }
+
+    const result = this.gameEngine.updateTranscript(socketData.roomCode, socketData.playerId, data.transcript);
+
+    if (!result) {
+      this.logger.warn(`submit-transcript failed`, {
+        roomCode: socketData.roomCode,
+        playerId: socketData.playerId,
+      });
+      return { success: false, error: 'Cannot update transcript', similarity: 0 };
+    }
+
+    const room = this.roomManager.getRoom(socketData.roomCode);
+    const transcriptEntry = room?.game.transcripts.find((t) => t.playerId === socketData.playerId);
+
+    this.server.to(socketData.roomCode).emit('transcript-updated', {
+      playerId: socketData.playerId,
+      transcript: transcriptEntry?.transcript ?? data.transcript,
+      similarity: result.similarity,
+    });
+
+    return { success: true, similarity: result.similarity };
+  }
+
+  @SubscribeMessage('get-transcripts')
+  handleGetTranscripts(@ConnectedSocket() client: Socket): {
+    success: boolean;
+    error?: string;
+    transcripts?: unknown[];
+  } {
+    const socketData = this.socketRoomMap.get(client.id);
+
+    this.logger.debug(`get-transcripts event`, { roomCode: socketData?.roomCode });
+
+    if (!socketData?.roomCode) {
+      return { success: false, error: 'Not in a room' };
+    }
+
+    const room = this.roomManager.getRoom(socketData.roomCode);
+    if (!room) {
+      this.logger.warn(`get-transcripts failed - room not found`, { roomCode: socketData.roomCode });
+      return { success: false, error: 'Room not found' };
+    }
+
+    return { success: true, transcripts: room.game.transcripts };
   }
 }

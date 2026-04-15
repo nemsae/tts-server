@@ -1,4 +1,7 @@
-import type { GameSettings as GameSettingsFromSchema, TwisterLength as TwisterLengthFromSchema } from '../schemas/index.js';
+import type {
+  GameSettings as GameSettingsFromSchema,
+  TwisterLength as TwisterLengthFromSchema,
+} from '../schemas/index.js';
 
 export type TwisterLength = TwisterLengthFromSchema;
 export type GameSettings = GameSettingsFromSchema;
@@ -26,8 +29,17 @@ export interface Player {
 export interface RoundResult {
   playerId: string;
   twisterId: string;
+  transcript: string;
   similarity: number;
   completedAt: number;
+}
+
+export interface PlayerRoundTranscript {
+  playerId: string;
+  twisterId: string;
+  transcript: string;
+  similarity: number | null;
+  submittedAt: number | null;
 }
 
 export interface GameState {
@@ -37,6 +49,7 @@ export interface GameState {
   twisters: Twister[];
   currentRound: number;
   roundResults: RoundResult[];
+  transcripts: PlayerRoundTranscript[];
   status: GameScreen;
   startedAt: number | null;
   pausedAt: number | null;
