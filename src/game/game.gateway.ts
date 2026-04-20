@@ -105,7 +105,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false, error: error instanceof Error ? error.message : 'Validation failed' };
     }
 
-    this.logger.log(`create-room event`, { playerName: data.playerName, settings: data.settings });
+    this.logger.log(`create-room event`, { roomCode: data.roomCode, hostName: data.hostName, settings: data.settings });
 
     try {
       const settings: GameSettings = {
@@ -116,7 +116,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         roundTimeLimit: data.settings.roundTimeLimit,
       };
 
-      const room = this.roomManager.createRoom(data.playerName, settings);
+      const room = this.roomManager.createRoom(data.roomCode, data.hostName, settings);
       this.socketRoomMap.set(client.id, { roomCode: room.code, playerId: room.game.players[0].id });
       void client.join(room.code);
 
@@ -186,6 +186,27 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.error(`join-room failed`, { error: error instanceof Error ? error.message : String(error) });
       return { success: false, error: error instanceof Error ? error.message : 'Failed to join room' };
     }
+  }
+
+  @SubscribeMessage('room-exists')
+  handleRoomExists(
+    @MessageBody() rawData: unknown,
+  ): { exists: boolean; status?: string; playerCount?: number } {
+    const roomCode = (rawData as { roomCode?: string })?.roomCode?.toUpperCase();
+    if (!roomCode) {
+      return { exists: false };
+    }
+
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room) {
+      return { exists: false };
+    }
+
+    return {
+      exists: true,
+      status: room.game.status,
+      playerCount: room.game.players.length,
+    };
   }
 
   @SubscribeMessage('start-game')

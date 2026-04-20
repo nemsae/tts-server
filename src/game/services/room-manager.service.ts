@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { generateRoomCode } from '../../common/utils/room-code.js';
-import { GameSettingsSchema, PlayerNameSchema } from '@jaysonder/tts-validation';
+import { GameSettingsSchema, PlayerNameSchema, RoomCodeSchema } from '@jaysonder/tts-validation';
 import type { ZodIssue } from 'zod';
 import type { Room, Player, GameSettings, GameState } from '../../common/types/index.js';
 
@@ -9,7 +9,20 @@ export class RoomManagerService {
   private readonly logger = new Logger(RoomManagerService.name);
   private rooms = new Map<string, Room>();
 
-  createRoom(hostName: string, settings: GameSettings): Room {
+  createRoom(roomCode: string, hostName: string, settings: GameSettings): Room {
+    const codeResult = RoomCodeSchema.safeParse(roomCode);
+    if (!codeResult.success) {
+      const error = codeResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
+      this.logger.error(`Invalid room code provided, roomCode: ${roomCode}, error: ${error}`);
+      throw new Error(`Invalid room code: ${error}`);
+    }
+    const sanitizedRoomCode = codeResult.data;
+
+    if (this.rooms.has(sanitizedRoomCode)) {
+      this.logger.warn(`Room code already exists, roomCode: ${sanitizedRoomCode}`);
+      throw new Error(`Room code ${sanitizedRoomCode} already exists`);
+    }
+
     const nameResult = PlayerNameSchema.safeParse(hostName);
     if (!nameResult.success) {
       const error = nameResult.error.issues.map((e: ZodIssue) => e.message).join(', ');
@@ -25,10 +38,9 @@ export class RoomManagerService {
       throw new Error(`Invalid game settings: ${errors}`);
     }
 
-    const roomCode = this.generateUniqueCode();
     const hostId = `host-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    this.logger.debug(`Creating room, roomCode: ${roomCode}, hostName: ${sanitizedHostName}, settings: ${JSON.stringify(settings)}`);
+    this.logger.debug(`Creating room, roomCode: ${sanitizedRoomCode}, hostName: ${sanitizedHostName}, settings: ${JSON.stringify(settings)}`);
 
     const host: Player = {
       id: hostId,
@@ -40,7 +52,7 @@ export class RoomManagerService {
     };
 
     const game: GameState = {
-      roomCode,
+      roomCode: sanitizedRoomCode,
       settings,
       players: [host],
       twisters: [],
@@ -55,14 +67,14 @@ export class RoomManagerService {
     };
 
     const room: Room = {
-      code: roomCode,
+      code: sanitizedRoomCode,
       game,
       hostId,
       createdAt: Date.now(),
     };
 
-    this.rooms.set(roomCode, room);
-    this.logger.log(`Room created, roomCode: ${roomCode}, hostId: ${hostId}, totalRooms: ${this.rooms.size}`);
+    this.rooms.set(sanitizedRoomCode, room);
+    this.logger.log(`Room created, roomCode: ${sanitizedRoomCode}, hostId: ${hostId}, totalRooms: ${this.rooms.size}`);
     return room;
   }
 

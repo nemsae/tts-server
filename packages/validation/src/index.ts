@@ -12,6 +12,12 @@ export const MAX_ROUND_TIME_LIMIT = 120;
 
 // ── Reusable field schemas ─────────────────────────────────────────────
 
+export const RoomCodeSchema = z
+  .string()
+  .min(1, 'Room code is required')
+  .transform((val) => val.toUpperCase().trim())
+  .pipe(z.string().min(1, 'Room code is required').length(4, 'Room code must be 4 characters'));
+
 export const TwisterLengthSchema = z.enum(['short', 'medium', 'long', 'custom']);
 
 export const TopicSchema = z
@@ -85,7 +91,8 @@ export const GameSettingsSchema = z.object({
 });
 
 export const CreateRoomSchema = z.object({
-  playerName: PlayerNameSchema,
+  roomCode: RoomCodeSchema,
+  hostName: PlayerNameSchema,
   settings: GameSettingsSchema,
 });
 
