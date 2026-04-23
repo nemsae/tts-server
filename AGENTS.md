@@ -32,6 +32,8 @@ src/
 | Start     | `npm run start`   |
 | Lint      | `npm run lint`    |
 
+**Note:** After editing `packages/validation`, run `npm run build` to rebuild the package.
+
 ## Environment
 | Variable        | Required | Default     |
 |-----------------|----------|-------------|

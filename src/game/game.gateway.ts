@@ -102,7 +102,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       data = parseDto(CreateRoomSchema, rawData);
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Validation failed' };
+      const errMsg = error instanceof Error ? error.message : 'Validation failed';
+      this.logger.error(`create-room validation failed`, { error: errMsg, payload: rawData });
+      return { success: false, error: errMsg };
     }
 
     this.logger.log(`create-room event`, { roomCode: data.roomCode, hostName: data.hostName, settings: data.settings });

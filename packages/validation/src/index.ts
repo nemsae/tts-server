@@ -16,7 +16,7 @@ export const RoomCodeSchema = z
   .string()
   .min(1, 'Room code is required')
   .transform((val) => val.toUpperCase().trim())
-  .pipe(z.string().min(1, 'Room code is required').length(4, 'Room code must be 4 characters'));
+  .pipe(z.string().min(1, 'Room code is required').max(6, 'Room code must be at most 6 characters').regex(/^[A-Z0-9]+$/, 'Room code must be alphanumeric'));
 
 export const TwisterLengthSchema = z.enum(['short', 'medium', 'long', 'custom']);
 

@@ -19,7 +19,7 @@ Multiplayer tongue twister game server. Players create/join rooms, compete to sa
 
 ```bash
 npm run dev          # Start dev server with hot reload
-npm run build        # Compile TypeScript
+npm run build        # Compile TypeScript (including @jaysonder/tts-validation)
 npm start            # Run compiled build
 npm run lint         # Lint source files
 npm run lint:fix     # Auto-fix lint issues
