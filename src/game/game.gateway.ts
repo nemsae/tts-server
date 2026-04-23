@@ -190,10 +190,49 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('room-exists')
-  handleRoomExists(
+  @SubscribeMessage('leave-room')
+  handleLeaveRoom(@ConnectedSocket() client: Socket): { success: boolean; error?: string } {
+    const socketData = this.socketRoomMap.get(client.id);
+
+    this.logger.log(`leave-room event`, { roomCode: socketData?.roomCode, playerId: socketData?.playerId });
+
+    if (!socketData?.roomCode || !socketData?.playerId) {
+      return { success: false, error: 'Not in a room' };
+    }
+
+    const roomCode = socketData.roomCode;
+    const playerId = socketData.playerId;
+
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room) {
+      socketData.roomCode = null;
+      socketData.playerId = null;
+      void client.leave(roomCode);
+      return { success: true };
+    }
+
+    this.roomManager.removePlayer(roomCode, playerId);
+
+    socketData.roomCode = null;
+    socketData.playerId = null;
+    void client.leave(roomCode);
+
+    const updatedRoom = this.roomManager.getRoom(roomCode);
+    if (updatedRoom) {
+      this.server.to(roomCode).emit('player-left', {
+        playerId,
+        players: updatedRoom.game.players,
+      });
+    }
+
+    this.logger.log(`Player left room`, { roomCode, playerId });
+    return { success: true };
+  }
+
+  @SubscribeMessage('room-info')
+  handleRoomInfo(
     @MessageBody() rawData: unknown,
-  ): { exists: boolean; status?: string; playerCount?: number } {
+  ): { exists: boolean; status?: string; playerCount?: number; playerNames?: string[] } {
     const roomCode = (rawData as { roomCode?: string })?.roomCode?.toUpperCase();
     if (!roomCode) {
       return { exists: false };
@@ -208,6 +247,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       exists: true,
       status: room.game.status,
       playerCount: room.game.players.length,
+      playerNames: room.game.players.map((p) => p.name),
     };
   }
 
